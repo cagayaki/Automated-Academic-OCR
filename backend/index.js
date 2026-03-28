@@ -30,6 +30,9 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', message: 'API is running' });
 });
 
-app.listen(PORT, () => {
+const seedData = require('./seedDataset');
+
+app.listen(PORT, async () => {
   console.log(`Server running on port ${PORT}`);
+  await seedData();
 });
