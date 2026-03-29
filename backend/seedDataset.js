@@ -1,9 +1,20 @@
 const Document = require('./models/Document');
+const User = require('./models/User');
+const bcrypt = require('bcryptjs');
 
 const seedData = async () => {
   try {
     const count = await Document.countDocuments();
     if (count > 0) return; // Already seeded
+
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash('admin123', salt);
+    await User.create({
+      fullName: 'Admin Registrar',
+      email: 'registrar@university.edu',
+      password: hashedPassword
+    });
+    console.log('Default registrar account seeded.');
 
     console.log('Seeding initial testing dataset...');
 
