@@ -54,7 +54,7 @@ const Sidebar = () => {
           onClick={() => {
             localStorage.removeItem('ocr_token');
             localStorage.removeItem('ocr_user');
-            window.location.href = '/login';
+            window.location.href = '/';
           }}
           className="w-full py-2 bg-slate-800/80 hover:bg-rose-600 text-slate-300 hover:text-white rounded-md text-sm font-medium transition-colors border border-slate-700 hover:border-rose-500 shadow-sm"
         >
