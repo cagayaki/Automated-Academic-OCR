@@ -5,7 +5,8 @@ const dotenv = require('dotenv');
 const connectDB = require('./config/db');
 
 dotenv.config();
-connectDB();
+// Store the connection promise
+const dbPromise = connectDB();
 
 const path = require('path');
 const documentRoutes = require('./routes/documentRoutes');
@@ -13,6 +14,12 @@ const settingsRoutes = require('./routes/settingsRoutes');
 const authRoutes = require('./routes/authRoutes');
 
 const app = express();
+
+// Ensure DB is connected before processing any request
+app.use(async (req, res, next) => {
+  await dbPromise;
+  next();
+});
 
 app.use(cors());
 app.use(express.json());

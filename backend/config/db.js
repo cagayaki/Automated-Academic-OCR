@@ -5,21 +5,33 @@ const connectDB = async () => {
   try {
     let mongoUri = process.env.MONGO_URI;
     
-    try {
-      await mongoose.connect(mongoUri, { serverSelectionTimeoutMS: 2000 });
-      console.log(`MongoDB Connected: ${mongoose.connection.host}`);
-    } catch (e) {
-      console.log('Local MongoDB not running. Starting In-Memory MongoDB for MVP...');
-      const mongoServer = await MongoMemoryServer.create();
-      mongoUri = mongoServer.getUri();
-      
-      // Mongoose 6+ default behavior handles options elegantly
-      await mongoose.connect(mongoUri);
-      console.log(`In-Memory MongoDB Connected: ${mongoose.connection.host}`);
+    // First try standard connection
+    if (mongoUri) {
+      try {
+        const conn = await mongoose.connect(mongoUri, { serverSelectionTimeoutMS: 2000 });
+        console.log(`MongoDB Connected: ${conn.connection.host}`);
+        return conn;
+      } catch (e) {
+        console.log('Provided MongoDB URI failed to connect. Falling back to Memory Server...');
+      }
     }
+    
+    // Fallback to memory server for MVP testing
+    console.log('Starting In-Memory MongoDB for MVP...');
+    const mongoServer = await MongoMemoryServer.create();
+    mongoUri = mongoServer.getUri();
+    
+    const conn = await mongoose.connect(mongoUri);
+    console.log(`In-Memory MongoDB Connected: ${conn.connection.host}`);
+    
+    // Seed the memory database automatically once connected
+    const seedData = require('../seedDataset');
+    await seedData().catch(e => console.log("Seeding issue:", e));
+    
+    return conn;
   } catch (error) {
     console.error(`Database Connection Error: ${error.message}`);
-    process.exit(1);
+    // Do not process.exit(1) on Vercel
   }
 };
 
