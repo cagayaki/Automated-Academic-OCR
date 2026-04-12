@@ -11,6 +11,18 @@ const Results = () => {
 
   useEffect(() => {
     const fetchDoc = async () => {
+      // Intercept execution and load Demo Scans from browser memory directly!
+      if (id && id.startsWith('demo-doc')) {
+        try {
+          const localDoc = localStorage.getItem(id);
+          if (localDoc) {
+            setDoc(JSON.parse(localDoc));
+            setLoading(false);
+            return;
+          }
+        } catch (e) {}
+      }
+
       try {
         const { data } = await api.get(`/documents/${id}`);
         setDoc(data);

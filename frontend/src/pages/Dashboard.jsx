@@ -14,6 +14,18 @@ const Dashboard = () => {
         const { data } = await api.get('/documents');
         const docs = data || [];
         
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key && key.startsWith('demo-doc-')) {
+            try {
+              const localDoc = JSON.parse(localStorage.getItem(key));
+              if (!docs.find(d => d._id === localDoc._id)) {
+                docs.unshift(localDoc);
+              }
+            } catch (e) {}
+          }
+        }
+        
         setStats({
           total: docs.length,
           verified: docs.filter(d => d.status === 'Verified').length,

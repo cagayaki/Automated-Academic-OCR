@@ -30,7 +30,7 @@ const extractText = async (absoluteFilePath) => {
           text: "THIS IS A FAST DEMO TEXT.\nUNIVERSITY ACADEMIC TRANSCRIPT\nStudent Name: John Doe\nStudent ID: 2024-00001\nCourse: Bachelor of Science\nGPA: 4.0\nInstitution Name: Global University\nDate Issued: 01/01/2024\nThis text was automatically generated because the Vercel Hobby serverless limits were exceeded during live OCR.",
           confidence: 85
         });
-      }, 45000)); // Increased to 45 seconds to allow real OCR to naturally finish!
+      }, 8500)); // Strict 8.5s timeout to guarantee Vercel Serverless compatibility
 
       const ocrPromise = (async () => {
         const worker = await Tesseract.createWorker('eng', 1, {

@@ -46,6 +46,11 @@ const Upload = () => {
       clearInterval(progInterval);
       setProgress(100);
       
+      // Save locally to prevent Vercel Serverless container memory loss between routes
+      if (response.data?.document?._id.startsWith('demo-doc')) {
+        localStorage.setItem(response.data.document._id, JSON.stringify(response.data.document));
+      }
+      
       setTimeout(() => {
         navigate(`/results/${response.data.document._id}`);
       }, 500);
