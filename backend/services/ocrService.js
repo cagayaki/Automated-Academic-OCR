@@ -22,7 +22,14 @@ const extractText = async (absoluteFilePath) => {
         confidence: data.text.trim().length > 50 ? 98 : 45
       };
     } else {
-      const worker = await Tesseract.createWorker('eng');
+      const os = require('os');
+      // Tell Tesseract to use the local OS temporary directory for downloading its AI Models
+      // If it tries to download to the standard restricted Vercel folders, it silently freezes!
+      const worker = await Tesseract.createWorker('eng', 1, {
+        cachePath: os.tmpdir(),
+        langPath: path.join(__dirname, '..') // Point to the local eng.traineddata
+      });
+      
       const { data } = await worker.recognize(absoluteFilePath);
       await worker.terminate();
 
