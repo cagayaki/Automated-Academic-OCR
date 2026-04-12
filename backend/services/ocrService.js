@@ -27,7 +27,8 @@ const extractText = async (absoluteFilePath) => {
       // If it tries to download to the standard restricted Vercel folders, it silently freezes!
       const worker = await Tesseract.createWorker('eng', 1, {
         cachePath: os.tmpdir(),
-        langPath: path.join(__dirname, '..') // Point to the local eng.traineddata
+        langPath: path.join(__dirname, '..'), // Point to the local eng.traineddata
+        gzip: false // Fix: Tesseract automatically expects .gz unless false!
       });
       
       const { data } = await worker.recognize(absoluteFilePath);
