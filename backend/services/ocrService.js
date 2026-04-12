@@ -44,7 +44,8 @@ const extractText = async (absoluteFilePath) => {
       // Race the OCR engine against Vercel's strict 10 second timeout!
       const result = await Promise.race([ocrPromise, timeoutPromise]);
       
-      await worker.terminate();
+      // Execute termination deeply asynchronously so it does not block the return if the math engine is stuck!
+      worker.terminate().catch(console.error);
 
       return result;
     }
