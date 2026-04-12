@@ -32,6 +32,11 @@ app.use('/api/auth', authRoutes);
 app.use('/api/documents', documentRoutes);
 app.use('/api/settings', settingsRoutes);
 
+// Root route for simple health check via browser
+app.get('/', (req, res) => {
+  res.send('Academic OCR Backend is up and running on Serverless!');
+});
+
 const PORT = process.env.PORT || 5000;
 
 app.get('/api/health', (req, res) => {
