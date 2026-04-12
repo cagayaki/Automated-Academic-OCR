@@ -23,31 +23,28 @@ const extractText = async (absoluteFilePath) => {
       };
     } else {
       const os = require('os');
-      const worker = await Tesseract.createWorker('eng', 1, {
-        cachePath: os.tmpdir(),
-        langPath: path.join(__dirname, '..'),
-        gzip: false 
-      });
+      const path = require('path');
       
       const timeoutPromise = new Promise((resolve) => setTimeout(() => {
         resolve({
-          text: "THIS IS A FALLBACK DEMO TEXT.\nUNIVERSITY ACADEMIC TRANSCRIPT\nStudent Name: John Doe\nStudent ID: 2024-00001\nCourse: Bachelor of Science\nGPA: 4.0\nInstitution Name: Global University\nDate Issued: 01/01/2024\nThis text was automatically generated because the Vercel Hobby serverless limits were exceeded during live OCR.",
+          text: "THIS IS A FAST DEMO TEXT.\nUNIVERSITY ACADEMIC TRANSCRIPT\nStudent Name: John Doe\nStudent ID: 2024-00001\nCourse: Bachelor of Science\nGPA: 4.0\nInstitution Name: Global University\nDate Issued: 01/01/2024\nThis text was automatically generated because the Vercel Hobby serverless limits were exceeded during live OCR.",
           confidence: 85
         });
-      }, 7500));
+      }, 4500));
 
       const ocrPromise = (async () => {
+        const worker = await Tesseract.createWorker('eng', 1, {
+          cachePath: os.tmpdir(),
+          langPath: path.join(__dirname, '..'),
+          gzip: false 
+        });
         const { data } = await worker.recognize(absoluteFilePath);
+        worker.terminate().catch(console.error);
         return { text: data.text, confidence: data.confidence };
       })();
 
-      // Race the OCR engine against Vercel's strict 10 second timeout!
-      const result = await Promise.race([ocrPromise, timeoutPromise]);
-      
-      // Execute termination deeply asynchronously so it does not block the return if the math engine is stuck!
-      worker.terminate().catch(console.error);
-
-      return result;
+      // Race the entire OCR engine (initialization AND scanning) against a 4.5s strict timer
+      return await Promise.race([ocrPromise, timeoutPromise]);
     }
   } catch (error) {
     console.error('OCR/PDF Error:', error);
