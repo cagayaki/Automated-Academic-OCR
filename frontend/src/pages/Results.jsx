@@ -65,7 +65,7 @@ const Results = () => {
                   <p className="text-xs text-slate-500">{doc.originalFileName}</p>
                 </div>
               ) : (
-                <img src={`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}/${doc.filePath}`} className="max-w-full h-auto shadow-sm border border-slate-200 rounded" alt="Preview"/>
+                <img src={`${import.meta.env.VITE_API_BASE_URL || 'http://192.168.18.21:5000'}/${doc.filePath}`} className="max-w-full h-auto shadow-sm border border-slate-200 rounded" alt="Preview"/>
               )}
             </div>
             <div className="p-6 space-y-4 text-sm border-t border-slate-100 bg-white">
