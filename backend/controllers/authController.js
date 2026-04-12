@@ -12,19 +12,28 @@ const register = async (req, res) => {
   const { fullName, email, password } = req.body;
 
   try {
-    const userExists = await User.findOne({ email });
-    if (userExists) {
-      return res.status(400).json({ message: 'User already exists' });
+    const mongoose = require('mongoose');
+    if (mongoose.connection.readyState === 1) {
+      const userExists = await User.findOne({ email });
+      if (userExists) {
+        return res.status(400).json({ message: 'User already exists' });
+      }
     }
 
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
-    const user = await User.create({
-      fullName,
-      email,
-      password: hashedPassword
-    });
+    let user = null;
+    if (mongoose.connection.readyState === 1) {
+      user = await User.create({
+        fullName,
+        email,
+        password: hashedPassword
+      });
+    } else {
+      // Demo Mode: Mock the created user
+      user = { _id: 'demo-' + Date.now(), fullName, email };
+    }
 
     if (user) {
       res.status(201).json({
@@ -45,9 +54,13 @@ const login = async (req, res) => {
   const { email, password } = req.body;
 
   try {
-    const user = await User.findOne({ email });
+    const mongoose = require('mongoose');
+    let user = null;
+    if (mongoose.connection.readyState === 1) {
+      user = await User.findOne({ email });
+    }
 
-    if (user && (await bcrypt.compare(password, user.password))) {
+    if (user && mongoose.connection.readyState === 1 && (await bcrypt.compare(password, user.password))) {
       res.json({
         _id: user._id,
         fullName: user.fullName,

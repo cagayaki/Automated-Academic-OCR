@@ -5,6 +5,10 @@ const ocrService = require('../services/ocrService');
 const validationService = require('../services/validationService');
 const fs = require('fs');
 const os = require('os');
+const mongoose = require('mongoose');
+
+const demoDocuments = [];
+
 
 const storage = multer.diskStorage({
   destination(req, file, cb) {
@@ -37,13 +41,27 @@ const uploadDocument = async (req, res) => {
     const filePath = `uploads/${filename}`;
     const absoluteFilePath = path.join(os.tmpdir(), filename);
 
-    const newDoc = await Document.create({
-      originalFileName: originalname,
-      filePath: filePath,
-      fileSize: size,
-      fileType: mimetype,
-      status: 'Pending'
-    });
+    let newDoc;
+    if (mongoose.connection.readyState === 1) {
+      newDoc = new Document({
+        originalFileName: originalname,
+        filePath: filePath,
+        fileSize: size,
+        fileType: mimetype,
+        status: 'Pending'
+      });
+    } else {
+      newDoc = {
+        _id: 'demo-doc-' + Date.now().toString(),
+        originalFileName: originalname,
+        filePath: filePath,
+        fileSize: size,
+        fileType: mimetype,
+        status: 'Pending',
+        createdAt: new Date().toISOString()
+      };
+      demoDocuments.push(newDoc);
+    }
 
     const ocrData = await ocrService.extractText(absoluteFilePath);
     newDoc.extractedText = ocrData.text;
@@ -59,7 +77,9 @@ const uploadDocument = async (req, res) => {
     newDoc.status = verificationResults.status;
     newDoc.decisionText = verificationResults.decisionText;
 
-    await newDoc.save();
+    if (mongoose.connection.readyState === 1) {
+      await newDoc.save();
+    }
 
     res.status(201).json({
       message: 'Document uploaded and verified',
@@ -73,6 +93,9 @@ const uploadDocument = async (req, res) => {
 
 const getDocuments = async (req, res) => {
   try {
+    if (mongoose.connection.readyState !== 1) {
+      return res.json(demoDocuments); // Return memory list for demo mode if db is offline
+    }
     const documents = await Document.find({}).sort({ createdAt: -1 });
     res.json(documents);
   } catch (error) {
@@ -82,6 +105,10 @@ const getDocuments = async (req, res) => {
 
 const getDocumentById = async (req, res) => {
   try {
+    if (mongoose.connection.readyState !== 1) {
+      const doc = demoDocuments.find(d => d._id === req.params.id);
+      return doc ? res.json(doc) : res.status(404).json({ message: 'Document not found (Demo Mode reset)' });
+    }
     const document = await Document.findById(req.params.id);
     if (!document) {
       return res.status(404).json({ message: 'Document not found' });
