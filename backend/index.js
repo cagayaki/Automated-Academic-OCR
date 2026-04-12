@@ -17,8 +17,9 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Serve uploaded files statically
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+// Serve uploaded files statically from OS temp directory
+const os = require('os');
+app.use('/uploads', express.static(os.tmpdir()));
 
 app.use('/api/auth', authRoutes);
 app.use('/api/documents', documentRoutes);
@@ -32,7 +33,11 @@ app.get('/api/health', (req, res) => {
 
 const seedData = require('./seedDataset');
 
-app.listen(PORT, async () => {
-  console.log(`Server running on port ${PORT}`);
-  await seedData();
-});
+if (process.env.NODE_ENV !== 'production') {
+  app.listen(PORT, async () => {
+    console.log(`Server running on port ${PORT}`);
+    await seedData();
+  });
+}
+
+module.exports = app;

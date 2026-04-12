@@ -4,12 +4,11 @@ const Document = require('../models/Document');
 const ocrService = require('../services/ocrService');
 const validationService = require('../services/validationService');
 const fs = require('fs');
+const os = require('os');
 
 const storage = multer.diskStorage({
   destination(req, file, cb) {
-    const uploadDir = path.join(__dirname, '../uploads');
-    if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir);
-    cb(null, uploadDir);
+    cb(null, os.tmpdir());
   },
   filename(req, file, cb) {
     cb(null, `${Date.now()}-${file.originalname}`);
@@ -36,7 +35,7 @@ const uploadDocument = async (req, res) => {
 
     const { originalname, filename, size, mimetype } = req.file;
     const filePath = `uploads/${filename}`;
-    const absoluteFilePath = path.join(__dirname, '../uploads', filename);
+    const absoluteFilePath = path.join(os.tmpdir(), filename);
 
     const newDoc = await Document.create({
       originalFileName: originalname,
