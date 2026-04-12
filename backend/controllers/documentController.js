@@ -113,6 +113,7 @@ const getDocumentById = async (req, res) => {
         doc = {
           _id: req.params.id,
           originalFileName: 'Uploaded_Demo_Document.png',
+          filePath: '', // Fix the broken image issue by having an empty valid string or handling it in frontend
           fileType: 'image/png',
           status: 'Verified',
           ocrConfidence: 85,
