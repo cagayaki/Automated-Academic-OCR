@@ -70,7 +70,23 @@ const uploadDocument = async (req, res) => {
     const extractedFields = validationService.extractFields(ocrData.text);
     Object.assign(newDoc, extractedFields);
 
+    // Rule 7: Duplicate & Fraud Detection
+    let duplicateDetected = false;
+    if (mongoose.connection.readyState === 1 && extractedFields.studentId) {
+      const duplicateRecord = await Document.findOne({ studentId: extractedFields.studentId, status: { $ne: 'Pending' } });
+      if (duplicateRecord) duplicateDetected = true;
+    } else if (extractedFields.studentId) {
+      const memDup = demoDocuments.find(d => d.studentId === extractedFields.studentId);
+      if (memDup) duplicateDetected = true;
+    }
+
     const verificationResults = validationService.verifyDocument(ocrData, extractedFields);
+
+    if (duplicateDetected) {
+      verificationResults.status = 'Duplicate Submission';
+      verificationResults.decisionText = 'Fraud Error: The exact same Student ID has already been submitted to the database previously.';
+      verificationResults.authenticityScore = 0;
+    }
     
     newDoc.validationResults = verificationResults.checks;
     newDoc.authenticityScore = verificationResults.authenticityScore;

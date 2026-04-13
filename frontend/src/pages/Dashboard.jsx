@@ -28,9 +28,9 @@ const Dashboard = () => {
         
         setStats({
           total: docs.length,
-          verified: docs.filter(d => d.status === 'Verified').length,
-          needsReview: docs.filter(d => d.status === 'Needs Review').length,
-          invalid: docs.filter(d => d.status === 'Invalid').length,
+          verified: docs.filter(d => ['Verified', 'Valid'].includes(d.status)).length,
+          needsReview: docs.filter(d => ['Needs Review', 'Incomplete', 'Unverified', 'Inconsistent'].includes(d.status)).length,
+          invalid: docs.filter(d => ['Invalid', 'Low Quality', 'Duplicate Submission'].includes(d.status)).length,
           pending: docs.filter(d => d.status === 'Pending').length,
         });
         
@@ -43,6 +43,13 @@ const Dashboard = () => {
     };
     fetchStats();
   }, []);
+
+  const getStatusColor = (status) => {
+    if (['Verified', 'Valid'].includes(status)) return 'bg-emerald-50 text-emerald-700 border-emerald-200';
+    if (['Invalid', 'Low Quality', 'Duplicate Submission', 'Inconsistent'].includes(status)) return 'bg-rose-50 text-rose-700 border-rose-200';
+    if (['Needs Review', 'Incomplete', 'Unverified'].includes(status)) return 'bg-amber-50 text-amber-700 border-amber-200';
+    return 'bg-slate-50 text-slate-700 border-slate-200';
+  };
 
   const StatCard = ({ title, value, icon, bg, text }) => (
     <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between hover:shadow-md transition-shadow">
@@ -121,12 +128,7 @@ const Dashboard = () => {
                       </div>
                     </td>
                     <td className="p-4">
-                      <span className={`px-2.5 py-1 rounded-md text-xs font-medium border ${
-                        doc.status === 'Verified' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 
-                        doc.status === 'Needs Review' ? 'bg-amber-50 text-amber-700 border-amber-200' : 
-                        doc.status === 'Invalid' ? 'bg-rose-50 text-rose-700 border-rose-200' : 
-                        'bg-slate-50 text-slate-700 border-slate-200'
-                      }`}>
+                      <span className={`px-2.5 py-1 rounded-md text-xs font-medium border ${getStatusColor(doc.status)}`}>
                         {doc.status}
                       </span>
                     </td>

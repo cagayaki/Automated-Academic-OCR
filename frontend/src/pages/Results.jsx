@@ -9,6 +9,12 @@ const Results = () => {
   const [doc, setDoc] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  const getDecisionColors = (status) => {
+    if (['Verified', 'Valid'].includes(status)) return { bg: 'bg-emerald-50/80', text: 'text-emerald-700' };
+    if (['Invalid', 'Low Quality', 'Duplicate Submission', 'Inconsistent'].includes(status)) return { bg: 'bg-rose-50/80', text: 'text-rose-700' };
+    return { bg: 'bg-amber-50/80', text: 'text-amber-700' };
+  };
+
   useEffect(() => {
     const fetchDoc = async () => {
       // Intercept execution and load Demo Scans from browser memory directly!
@@ -268,9 +274,9 @@ const Results = () => {
               </div>
 
               {/* Decision */}
-              <div className={`p-8 ${doc.status === 'Verified' ? 'bg-emerald-50/80' : doc.status === 'Invalid' ? 'bg-rose-50/80' : 'bg-amber-50/80'}`}>
+              <div className={`p-8 ${getDecisionColors(doc.status).bg}`}>
                 <h3 className="font-bold text-slate-700 text-xs mb-1 uppercase tracking-wider">Decision</h3>
-                <p className={`text-lg font-bold ${doc.status === 'Verified' ? 'text-emerald-700' : doc.status === 'Invalid' ? 'text-rose-700' : 'text-amber-700'}`}>
+                <p className={`text-lg font-bold ${getDecisionColors(doc.status).text}`}>
                   {doc.decisionText || 'Document flagged for manual review.'}
                 </p>
               </div>
