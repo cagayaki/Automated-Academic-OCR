@@ -22,11 +22,40 @@ const extractText = async (absoluteFilePath) => {
         confidence: data.text.trim().length > 50 ? 98 : 45
       };
     } else {
+      const isVercel = process.env.VERCEL || process.env.VERCEL_ENV;
+      
+      // If deployed on Vercel, route image processing to an external highly-optimised OCR API 
+      // because Tesseract WebAssembly triggers 10s serverless memory limit timeouts.
+      if (isVercel) {
+        const FormData = require('form-data');
+        const axios = require('axios');
+        
+        const form = new FormData();
+        form.append('apikey', 'helloworld'); // Free universal public key
+        form.append('language', 'eng');
+        form.append('isOverlayRequired', 'false');
+        form.append('file', fs.createReadStream(absoluteFilePath));
+        
+        const response = await axios.post('https://api.ocr.space/parse/image', form, {
+          headers: form.getHeaders(),
+          timeout: 8000 // Ensure it resolves before Vercel kills it
+        });
+        
+        if (response.data && response.data.ParsedResults && response.data.ParsedResults.length > 0) {
+          return {
+            text: response.data.ParsedResults[0].ParsedText,
+            confidence: 85 // Safe external default assumption
+          };
+        } else {
+          throw new Error('External OCR parsing failed.');
+        }
+      }
+
+      // If running Locally, use maximum processing power with Node.js Tesseract
       const os = require('os');
       const path = require('path');
       
-      const isVercel = process.env.VERCEL || process.env.VERCEL_ENV;
-      const timeoutMs = isVercel ? 8500 : 300000; // 8.5s limit on Vercel, 5 minutes globally otherwise
+      const timeoutMs = 300000; // 5 minutes globally locally
       const timeoutPromise = new Promise((_, reject) => setTimeout(() => {
         reject(new Error("OCR Engine Timeout: Server execution limits exceeded."));
       }, timeoutMs));
@@ -42,7 +71,6 @@ const extractText = async (absoluteFilePath) => {
         return { text: data.text, confidence: data.confidence };
       })();
 
-      // Race the entire OCR engine (initialization AND scanning) against a 4.5s strict timer
       return await Promise.race([ocrPromise, timeoutPromise]);
     }
   } catch (error) {
