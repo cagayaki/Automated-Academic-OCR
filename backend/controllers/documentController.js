@@ -76,7 +76,7 @@ const uploadDocument = async (req, res) => {
       const duplicateRecord = await Document.findOne({ studentId: extractedFields.studentId, status: { $ne: 'Pending' } });
       if (duplicateRecord) duplicateDetected = true;
     } else if (extractedFields.studentId) {
-      const memDup = demoDocuments.find(d => d.studentId === extractedFields.studentId);
+      const memDup = demoDocuments.find(d => d.studentId === extractedFields.studentId && d._id !== newDoc._id && d.status !== 'Pending');
       if (memDup) duplicateDetected = true;
     }
 
