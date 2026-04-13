@@ -123,36 +123,7 @@ const getDocumentById = async (req, res) => {
   try {
     if (mongoose.connection.readyState !== 1) {
       let doc = demoDocuments.find(d => d._id === req.params.id);
-      
-      // If serverless memory was wiped between the upload and the get request, just regenerate it dynamically!
-      if (!doc && req.params.id && req.params.id.startsWith('demo-doc')) {
-        doc = {
-          _id: req.params.id,
-          originalFileName: 'Uploaded_Demo_Document.png',
-          filePath: '', // Fix the broken image issue by having an empty valid string or handling it in frontend
-          fileType: 'image/png',
-          status: 'Verified',
-          ocrConfidence: 85,
-          authenticityScore: 92,
-          studentName: 'John Doe',
-          studentId: '2024-00001',
-          course: 'Bachelor of Science',
-          institutionName: 'Global University',
-          dateIssued: '01/01/2024',
-          gpa: '4.0',
-          decisionText: 'Document verified successfully using Demo Mode Fallback.',
-          validationResults: {
-            ocrQuality: { score: 85, resolution: 'Standard', clarity: 'Readable', orientation: 'Correct' },
-            requiredFields: { score: 100, studentName: 'John Doe', studentId: '2024-00001', course: 'BS Sci', institutionName: 'Global Univ', dateIssued: '01/01/2024', gpa: '4.0' },
-            dataFormat: { score: 100 },
-            institution: { score: 100, inDatabase: 'Yes', formatting: 'Official', keywordDetection: 'Passed' },
-            consistency: { score: 100, idMatchesDate: 'Yes', courseExists: 'Yes' },
-            issuance: { score: 100, notFuture: 'Yes', validPeriod: 'Yes' }
-          }
-        };
-      }
-      
-      return doc ? res.json(doc) : res.status(404).json({ message: 'Document not found' });
+      return doc ? res.json(doc) : res.status(404).json({ message: 'Document not found or session expired.' });
     }
     const document = await Document.findById(req.params.id);
     if (!document) {
