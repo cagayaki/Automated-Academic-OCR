@@ -25,11 +25,8 @@ const extractText = async (absoluteFilePath) => {
       const os = require('os');
       const path = require('path');
       
-      const timeoutPromise = new Promise((resolve) => setTimeout(() => {
-        resolve({
-          text: "THIS IS A FAST DEMO TEXT.\nUNIVERSITY ACADEMIC TRANSCRIPT\nStudent Name: John Doe\nStudent ID: 2024-00001\nCourse: Bachelor of Science\nGPA: 4.0\nInstitution Name: Global University\nDate Issued: 01/01/2024\nThis text was automatically generated because the Vercel Hobby serverless limits were exceeded during live OCR.",
-          confidence: 85
-        });
+      const timeoutPromise = new Promise((_, reject) => setTimeout(() => {
+        reject(new Error("OCR Engine Timeout: Vercel Serverless execution limits exceeded. Tesseract OCR requires more than 10 seconds to process heavy images."));
       }, 8500)); // Strict 8.5s timeout to guarantee Vercel Serverless compatibility
 
       const ocrPromise = (async () => {
