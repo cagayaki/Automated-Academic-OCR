@@ -32,8 +32,6 @@ const Settings = () => {
         }
       } catch (err) {
         console.error('Failed to load settings', err);
-      } finally {
-        setLoading(false);
       }
     };
     fetchSettings();

@@ -1,22 +1,24 @@
 const extractFields = (text) => {
   const fields = {};
   
-  const studentIdMatch = text.match(/(?:ID|Student No|Registration No)[\s#:]*([A-Z0-9-]{6,12})/i) || text.match(/\b(20\d{2}-\d{5})\b/);
-  fields.studentId = studentIdMatch ? studentIdMatch[1] : null;
+  // Loosen regex to heavily accommodate OCR noise and all caps
+  const studentIdMatch = text.match(/(?:ID|Student|No|Registration|Num)[\s#:=]*([A-Za-z0-9-]{5,15})/i) || text.match(/\b(20\d{2}-\d{4,5})\b/);
+  fields.studentId = studentIdMatch ? studentIdMatch[1].trim() : null;
 
-  const gpaMatch = text.match(/(?:GPA|Grade Point Average|G\.P\.A|CWA)[\s:]*([0-5]\.\d{1,3})/i) || text.match(/\b([1-4]\.\d{2})\b/);
+  const gpaMatch = text.match(/(?:GPA|Grade Point Average|G\.P\.A|CWA|CGPA)[\s:=]*([0-5]\.\d{1,3})/i) || text.match(/\b([1-5]\.\d{2})\b/);
   fields.gpa = gpaMatch ? gpaMatch[1] : null;
   
-  const dateMatch = text.match(/(?:Date Issued|Issued|Date)[\s:]*(\d{2}\/\d{2}\/\d{4}|\d{4}-\d{2}-\d{2}|[A-Za-z]+ \d{1,2}, \d{4})/i) || text.match(/\b(\d{2}\/\d{2}\/\d{4})\b/);
+  const dateMatch = text.match(/(?:Date|Issued|Date Issued)[\s:=]*(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}|[A-Za-z]+ \d{1,2},? \d{4})/i) || text.match(/\b(\d{2}\/\d{2}\/\d{4})\b/);
   fields.dateIssued = dateMatch ? dateMatch[1] : null;
 
-  const courseMatch = text.match(/(?:Course|Program|Degree|Major)[\s:]*([A-Za-z.\s]{5,40}(?:Engineering|Technology|Science|Arts|Business|Nursing|Medicine|IT|Information))/i);
-  fields.course = courseMatch ? courseMatch[1].trim() : null;
+  const courseMatch = text.match(/(?:Course|Program|Degree|Major)[\s:=]*([A-Za-z.\s\-]{5,40}(?:Engineering|Technology|Science|Arts|Business|Nursing|Medicine|IT|Information|Science|Education|Administration))/i) || text.match(/(?:Bachelor|Master|Doctor) of [A-Za-z\s]+/i);
+  fields.course = courseMatch ? (courseMatch[1] ? courseMatch[1].trim() : courseMatch[0].trim()) : null;
 
-  const nameMatch = text.match(/(?:Name|Student|Prepared For)[\s:]*([A-Z][a-z]+ (?:[A-Z]\. )?[A-Z][a-z]+)/i);
-  fields.studentName = nameMatch ? nameMatch[1].trim() : null;
+  const nameMatch = text.match(/(?:Name|Student|Prepared For)[\s:=]*([A-Za-z.,\s]{5,30})/i);
+  // OCR often outputs "Name: JOHN DOE". The old regex failed on all-caps. Widened boundary.
+  fields.studentName = nameMatch ? nameMatch[1].replace(/[\n\r]/g, "").trim() : null;
 
-  const institutionMatch = text.match(/(?:University|College|Institute)[\sA-Za-z]+/i);
+  const institutionMatch = text.match(/(?:University|College|Institute|Academy)[\sA-Za-z]+/i);
   fields.institutionName = institutionMatch ? institutionMatch[0].trim() : null;
 
   return fields;
@@ -98,8 +100,8 @@ const verifyDocument = (ocrData, extractedFields, activeSettings) => {
     authenticityScore -= 30;
   }
   else if (activeSettings.requireSchoolSeal && !hasSeal && !hasLetterheadOrLogo) {
-    finalStatus = 'Needs Review';
-    decisionText = 'Flagged for Review: System failed to detect the mandatory institutional Seal or Header as demanded by settings.';
+    finalStatus = 'Inconsistent';
+    decisionText = 'Error Report: Document flagged as Inconsistent. The active Mandatory School Seal rule failed because no legitimate institutional logo or seal was detected by the heuristic engine.';
     authenticityScore -= 15;
   }
   // Rule 2: Completeness Validation
