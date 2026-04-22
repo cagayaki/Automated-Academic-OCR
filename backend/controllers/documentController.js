@@ -1,6 +1,7 @@
 const multer = require('multer');
 const path = require('path');
 const Document = require('../models/Document');
+const Settings = require('../models/Settings');
 const ocrService = require('../services/ocrService');
 const validationService = require('../services/validationService');
 const fs = require('fs');
@@ -80,7 +81,17 @@ const uploadDocument = async (req, res) => {
       if (memDup) duplicateDetected = true;
     }
 
-    const verificationResults = validationService.verifyDocument(ocrData, extractedFields);
+    // Dynamic Rules Configuration Context Hook
+    let activeSettings;
+    if (mongoose.connection.readyState === 1) {
+      activeSettings = await Settings.findOne();
+    }
+    if (!activeSettings) {
+      // Memory boot or missing DB fallback: generate defaults dynamically
+      activeSettings = new Settings({});
+    }
+
+    const verificationResults = validationService.verifyDocument(ocrData, extractedFields, activeSettings);
 
     if (duplicateDetected) {
       verificationResults.status = 'Duplicate Submission';

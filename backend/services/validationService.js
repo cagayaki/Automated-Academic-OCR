@@ -1,22 +1,3 @@
-const registeredInstitutions = [
-  "Harvard University", "MIT", "Stanford", "UCLA", "Oxford", "Global University", 
-  "Massachusetts Institute of Technology", "Stanford University", "Oxford University"
-];
-
-const validateStudentID = (id) => /^[A-Z0-9-]{5,15}$/i.test(id) && /\d/.test(id);
-
-const validateDate = (dateStr) => {
-  if (!dateStr) return false;
-  const dateObj = new Date(dateStr);
-  return !isNaN(dateObj.getTime()) && dateObj <= new Date(); // Must not be in the future
-};
-
-const validateGPA = (gpa) => {
-  const num = parseFloat(gpa);
-  return !isNaN(num) && ((num >= 1.00 && num <= 5.00) || num >= 0.00); 
-};
-
-// IMPROVED 50% HIGHER FUNCTIONALITY EXTRACTOR
 const extractFields = (text) => {
   const fields = {};
   
@@ -41,18 +22,39 @@ const extractFields = (text) => {
   return fields;
 };
 
-const verifyDocument = (ocrData, extractedFields) => {
+const verifyDocument = (ocrData, extractedFields, activeSettings) => {
   const text = ocrData.text || '';
   
+  // Custom Framework Parameters validation bindings
+  const validateStudentID = (id) => new RegExp(activeSettings.studentIdFormat, 'i').test(id);
+
+  const validateDate = (dateStr) => {
+    if (!dateStr) return false;
+    const dateObj = new Date(dateStr);
+    if (isNaN(dateObj.getTime())) return false;
+    
+    // Temporal Logic
+    const currentDate = new Date();
+    const thresholdDate = new Date();
+    thresholdDate.setFullYear(currentDate.getFullYear() - activeSettings.temporalValidityYears);
+    
+    return dateObj <= currentDate && dateObj >= thresholdDate; 
+  };
+
+  const validateGPA = (gpa) => {
+    const num = parseFloat(gpa);
+    return !isNaN(num) && (num >= activeSettings.gpaMin && num <= activeSettings.gpaMax); 
+  };
+
   // 1. Authenticity Rules: Letterhead, Logo, Registrar Signature, Seal
-  const hasLetterheadOrLogo = /University|College|Institute|School|Academy/i.test(text.substring(0, 500));
+  const hasLetterheadOrLogo = /University|College|Institute|School|Academy|Pamantasan/i.test(text.substring(0, 500));
   const hasSignature = /(?:Registrar|Signature|Signed|Authorized|Dean|President)/i.test(text);
   const hasSeal = /(?:Seal|Stamp|Official|Certified|Registrar)/i.test(text);
 
   // 5. Institution Verification
   let institutionStatus = 'Unverified Institution';
-  if (extractedFields.institutionName) {
-    const isRecognized = registeredInstitutions.some(inst => 
+  if (extractedFields.institutionName && activeSettings.knownInstitutions) {
+    const isRecognized = activeSettings.knownInstitutions.some(inst => 
       extractedFields.institutionName.toLowerCase().includes(inst.toLowerCase()) || 
       inst.toLowerCase().includes(extractedFields.institutionName.toLowerCase())
     );
@@ -61,8 +63,27 @@ const verifyDocument = (ocrData, extractedFields) => {
 
   // Engine Decisions
   let finalStatus = 'Valid';
-  let decisionText = 'Document verified successfully. All 8 heuristic rule checks passed.';
+  let decisionText = 'Document verified successfully. All custom heuristic rule checks passed.';
   let authenticityScore = 100;
+
+  // Track completeness against activeSettings.requiredFields mapping
+  const fieldMapping = {
+    'Name': extractedFields.studentName,
+    'ID': extractedFields.studentId,
+    'Course': extractedFields.course,
+    'Institution': extractedFields.institutionName,
+    'Date': extractedFields.dateIssued,
+    'GPA': extractedFields.gpa
+  };
+  
+  let missingRequiredFields = false;
+  if (activeSettings.requiredFields && activeSettings.requiredFields.length > 0) {
+    activeSettings.requiredFields.forEach(req => {
+      // mapping array string exactly
+      const key = Object.keys(fieldMapping).find(k => req.toLowerCase().includes(k.toLowerCase()));
+      if (key && !fieldMapping[key]) missingRequiredFields = true;
+    });
+  }
 
   // Rule 6: Image/Text Quality Validation
   if (ocrData.confidence < 70) {
@@ -76,37 +97,37 @@ const verifyDocument = (ocrData, extractedFields) => {
     decisionText = 'Document flagged as Invalid. No authorized signature detected on document.';
     authenticityScore -= 30;
   }
-  else if (!hasLetterheadOrLogo) {
+  else if (activeSettings.requireSchoolSeal && !hasSeal && !hasLetterheadOrLogo) {
     finalStatus = 'Needs Review';
-    decisionText = 'Flagged for Review: No official school name or logo detected in the header document structure.';
+    decisionText = 'Flagged for Review: System failed to detect the mandatory institutional Seal or Header as demanded by settings.';
     authenticityScore -= 15;
   }
   // Rule 2: Completeness Validation
-  else if (!extractedFields.studentName || !extractedFields.studentId || !extractedFields.course || !extractedFields.institutionName || !extractedFields.dateIssued || !extractedFields.gpa) {
+  else if (missingRequiredFields) {
     finalStatus = 'Incomplete';
-    decisionText = 'Document is Incomplete. One or more mandatory fields are completely missing.';
+    decisionText = 'Document is Incomplete. One or more mandatory fields explicitly required by the Administrator are completely missing.';
     authenticityScore -= 25;
   }
   // Rule 5: Unverified Institution
   else if (institutionStatus !== 'Verified') {
     finalStatus = 'Unverified';
-    decisionText = 'Issuing institution is Unverified. It does not exist in the registered institutional database.';
+    decisionText = 'Issuing institution is Unverified. It does not exist in the dynamic administrative registered database.';
     authenticityScore -= 20;
   }
   // Rule 3: Format Validation & Rule 8: Issuance
   else if (!validateDate(extractedFields.dateIssued)) {
     finalStatus = 'Invalid';
-    decisionText = 'Document Format Error: Extracted date format is unrecognized or issued in the future.';
+    decisionText = `Document Format Error: Date unrecognized or outside the strict ${activeSettings.temporalValidityYears}-year validity temporal constraint.`;
     authenticityScore -= 15;
   }
   // Rule 4: Consistency
   else if (!validateGPA(extractedFields.gpa)) {
     finalStatus = 'Inconsistent'; 
-    decisionText = 'Consistency Error: Extracted GPA grades fall vastly outside the universal validity range.';
+    decisionText = `Consistency Error: Extracted GPA falls outside the custom validity range (${activeSettings.gpaMin.toFixed(2)} - ${activeSettings.gpaMax.toFixed(2)}).`;
     authenticityScore -= 20;
   }
 
-  // Populate checks structure for the Results UI components dynamically
+  // Populate checks structure for the Results UI dynamically
   const results = {
     checks: {
       ocrQuality: {
