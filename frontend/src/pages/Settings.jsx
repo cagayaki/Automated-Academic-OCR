@@ -3,7 +3,6 @@ import { ShieldCheck, Settings as SettingsIcon, Save } from 'lucide-react';
 import api from '../services/api';
 
 const Settings = () => {
-  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [config, setConfig] = useState({
     studentIdFormat: '^[A-Z0-9-]{5,15}$',
@@ -62,8 +61,6 @@ const Settings = () => {
       setSaving(false);
     }
   };
-
-  if (loading) return <div className="p-10 text-center text-slate-500">Loading Configuration Framework...</div>;
 
   return (
     <div className="max-w-4xl mx-auto space-y-6 animate-in fade-in duration-500 pb-12">
