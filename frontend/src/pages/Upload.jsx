@@ -91,8 +91,6 @@ const Upload = () => {
 
       const formData = new FormData();
       formData.append('document', optimizedFile);
-
-    try {
       const response = await api.post('/documents/upload', formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
