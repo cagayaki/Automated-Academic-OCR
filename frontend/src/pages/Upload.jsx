@@ -97,11 +97,7 @@ const Upload = () => {
     if (!file) return;
     
     setUploading(true);
-    setProgress(10); // Start progress indicating preparing
-    
-    let progInterval = setInterval(() => {
-      setProgress(p => Math.min(p + 15, 85)); // Simulates backend queue safely
-    }, 600);
+    setProgress(50); // Set absolute mid-point execution state reliably 
 
     try {
       // 1. Pristine HTML5 AI Compression to dramatically slash API queueing latency 
@@ -114,7 +110,6 @@ const Upload = () => {
       const response = await api.post('/documents/upload', formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
-      clearInterval(progInterval);
       setProgress(100);
       
       // Save locally to prevent Vercel Serverless container memory loss between routes
@@ -127,9 +122,8 @@ const Upload = () => {
       }, 500);
       
     } catch (error) {
-      clearInterval(progInterval);
       console.error('Upload Process failed', error);
-      const serverMsg = error.response?.data?.message || 'Network Severless Timeout (Vercel strictly killed connection at 10.0s due to payload weight).';
+      const serverMsg = error.response?.data?.message || 'Network Timeout Reached Check Logic Matrices.';
       const detailedErr = error.response?.data?.error || error.message || '';
       alert(`System fault detected during verification pipeline.\n\n${serverMsg}\n${detailedErr}`);
       setUploading(false);
