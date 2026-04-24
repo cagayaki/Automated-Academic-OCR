@@ -61,6 +61,8 @@ const uploadDocument = async (req, res) => {
         status: 'Pending',
         createdAt: new Date().toISOString()
       };
+      demoDocuments.push(newDoc);
+    }
     const { clientExtractedText } = req.body;
     let ocrData;
     
