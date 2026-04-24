@@ -56,10 +56,6 @@ const Upload = () => {
           const ctx = canvas.getContext('2d');
           ctx.drawImage(img, 0, 0, width, height);
 
-            data[i + 2] = contrast; // Record BLUE
-          }
-          ctx.putImageData(imageData, 0, 0);
-          
           canvas.toBlob((blob) => {
             if (!blob) {
               resolve(file);
