@@ -1,30 +1,80 @@
 const extractFields = (text) => {
   const fields = {};
   
-  // STAGE 2: Heuristic Extraction Layer (Semantic Anchor-Based Mapping)
-  // Instead of scanning spatial Box A1, we scan for specific Semantic Anchors, then calculate proximity.
+  // ==========================================
+  // STAGE 2: HEURISTIC ANCHOR-BASED MAPPING
+  // ==========================================
+  // The system uses a strict Spatial Proximity algorithm. 
+  // It isolates Semantic Anchors globally instead of fixed generic rectangles, making it Institution-Agnostic.
+
+  const extractByProximity = (ocrText, semanticAnchors, targetPattern, maxSpatialDistance = 120) => {
+    let bestMatch = null;
+    let closestDistance = Infinity;
+
+    semanticAnchors.forEach(anchor => {
+      // 1. Hunt for the Semantic Anchor in the physical text string
+      const anchorRegex = new RegExp(anchor, 'gi');
+      let match;
+      while ((match = anchorRegex.exec(ocrText)) !== null) {
+        const anchorIndex = match.index;
+        
+        // 2. Mathematically generate a Spatial Proximity Window immediately adjacent to it
+        const proximityWindow = ocrText.substring(anchorIndex, anchorIndex + maxSpatialDistance);
+        
+        // 3. Extract the target value strictly within this nearby radius
+        const valueRegex = new RegExp(targetPattern, 'i');
+        const valueMatch = proximityWindow.match(valueRegex);
+        
+        if (valueMatch) {
+          const spatialDistance = proximityWindow.indexOf(valueMatch[0]) - anchor.length;
+          // Capture the closest mathematical match spatially
+          if (spatialDistance < closestDistance && spatialDistance >= 0) {
+            closestDistance = spatialDistance;
+            bestMatch = valueMatch[1] ? valueMatch[1].trim() : valueMatch[0].trim();
+          }
+        }
+      }
+    });
+    return bestMatch;
+  };
+
+  // Heuristic Semantic Target 1: Student ID
+  fields.studentId = extractByProximity(
+    text, 
+    ['ID No', 'Student No', 'Registration', 'Identification', 'ID Number'], 
+    '([A-Za-z0-9-]{6,15})'
+  ) || text.match(/\b(20\d{2}-\d{4,5})\b/)?.[1];
+
+  // Heuristic Semantic Target 2: GWA / GPA
+  fields.gpa = extractByProximity(
+    text, 
+    ['GPA', 'GWA', 'Grade Point Average', 'CWA', 'CGPA', 'Weighted Average', 'Grade'], 
+    '([1-5]\\.\\d{2,3})',
+    80 // Narrower proximity to safely prevent picking up random document numbers
+  );
   
-  // Semantic Anchor: "ID", "Student No"
-  const studentIdMatch = text.match(/(?:ID|Student|No|Registration|Num)[\s#:=]*([A-Za-z0-9-]{5,15})/i) || text.match(/\b(20\d{2}-\d{4,5})\b/);
-  fields.studentId = studentIdMatch ? studentIdMatch[1].trim() : null;
+  // Heuristic Semantic Target 3: Date Issued
+  fields.dateIssued = extractByProximity(
+    text, 
+    ['Date', 'Issued', 'Date Issued'], 
+    '(\\d{1,2}[\\/\\-]\\d{1,2}[\\/\\-]\\d{2,4}|[A-Za-z]+ \\d{1,2},? \\d{4})'
+  ) || text.match(/\b(\d{2}\/\d{2}\/\d{4})\b/)?.[1];
 
-  // Semantic Anchor: "GPA", "Grade Point Average", "GWA"
-  const gpaMatch = text.match(/(?:GPA|Grade Point Average|G\.P\.A|CWA|CGPA|GWA)[\s:=]*([0-5]\.\d{1,3})/i) || text.match(/\b([1-5]\.\d{2})\b/);
-  fields.gpa = gpaMatch ? gpaMatch[1] : null;
-  
-  // Semantic Anchor: "Date Issued", "Issued"
-  const dateMatch = text.match(/(?:Date|Issued|Date Issued)[\s:=]*(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}|[A-Za-z]+ \d{1,2},? \d{4})/i) || text.match(/\b(\d{2}\/\d{2}\/\d{4})\b/);
-  fields.dateIssued = dateMatch ? dateMatch[1] : null;
+  // Heuristic Semantic Target 4: Course/Degree
+  fields.course = extractByProximity(
+    text, 
+    ['Course', 'Program', 'Degree', 'Major', 'Bachelor of', 'Master of', 'Doctor of'], 
+    '([A-Za-z.\\s\\-]{5,50}(?:Engineering|Technology|Science|Arts|Business|Nursing|Medicine|IT|Information|Science|Education|Administration))'
+  );
 
-  // Semantic Anchor: "Course", "Degree"
-  const courseMatch = text.match(/(?:Course|Program|Degree|Major)[\s:=]*([A-Za-z.\s\-]{5,40}(?:Engineering|Technology|Science|Arts|Business|Nursing|Medicine|IT|Information|Science|Education|Administration))/i) || text.match(/(?:Bachelor|Master|Doctor) of [A-Za-z\s]+/i);
-  fields.course = courseMatch ? (courseMatch[1] ? courseMatch[1].trim() : courseMatch[0].trim()) : null;
+  // Heuristic Semantic Target 5: Student Name
+  fields.studentName = extractByProximity(
+    text, 
+    ['Name', 'Student Name', 'Prepared For', 'Granted to'], 
+    '([A-Za-z.,\\s]{5,30})'
+  );
 
-  // Semantic Anchor: "Name", "Student"
-  const nameMatch = text.match(/(?:Name|Student|Prepared For)[\s:=]*([A-Za-z.,\s]{5,30})/i);
-  fields.studentName = nameMatch ? nameMatch[1].replace(/[\n\r]/g, "").trim() : null;
-
-  // Semantic Anchor: "University", "College", "Academy"
+  // Heuristic Semantic Target 6: Institution Header
   const institutionMatch = text.match(/(?:University|College|Institute|Academy|Pamantasan)[\sA-Za-z]+/i);
   fields.institutionName = institutionMatch ? institutionMatch[0].trim() : null;
 
@@ -34,21 +84,24 @@ const extractFields = (text) => {
 const verifyDocument = (ocrData, extractedFields, activeSettings) => {
   const text = ocrData.text || '';
   
-  // Field Validation Mathematics
-  const validateStudentID = (id) => new RegExp(activeSettings.studentIdFormat, 'i').test(id);
+  // Data Boundaries Validation
+  const validateStudentID = (id) => id ? new RegExp(activeSettings.studentIdFormat, 'i').test(id) : false;
   const validateGPA = (gpa) => {
+    if (!gpa) return false;
     const num = parseFloat(gpa);
     return !isNaN(num) && (num >= activeSettings.gpaMin && num <= activeSettings.gpaMax); 
   };
 
-  // STAGE 3: Weighted Reliability Theory Core (The "Decision Engine")
-  // The system checks individual features and applies absolute weight percentages.
-  
-  let authenticityScore = 0; // Confidence Score starts at 0%
+  // ==========================================
+  // STAGE 3: WEIGHTED VALIDATION LAYER
+  // ==========================================
+  // The mathematical execution of the "Weighted Reliability Theory" generating the Confidence Score (CS).
+
+  let authenticityScore = 0; 
   let finalStatus = 'Valid';
   let decisionText = '';
 
-  // 1. Mandatory Core Attributes Base Checking (Base Weight: 25%)
+  // 1. Mandatory Core Attributes Base Check 
   const fieldMapping = {
     'Name': extractedFields.studentName,
     'ID': extractedFields.studentId,
@@ -66,50 +119,53 @@ const verifyDocument = (ocrData, extractedFields, activeSettings) => {
     });
   }
   
-  // If baseline fields are perfectly intact, grant 25% Baseline Weight
+  // Missing required data drops the Base Weight globally
   if (!missingRequiredFields) {
-    authenticityScore += 25;
+    authenticityScore += 25; // Base Weight: 25%
   } else {
-    decisionText += 'Missing one or more required Semantic Anchors. ';
+    decisionText += 'Missing one or more required Semantic Anchors payload data. ';
   }
 
-  // 2. School Seal Check (Highest Weight: 0.30/30%)
-  const hasSeal = /(?:Seal|Stamp|Official|Certified|Registrar|Logo)/i.test(text);
+  // 2. School Seal / Header Validation (Highest Weight: 0.30)
+  const hasSeal = /(?:Seal|Stamp|Official|Certified|Logo)/i.test(text);
   const hasLetterhead = /University|College|Institute|School|Academy|Pamantasan/i.test(text.substring(0, 500));
   if (hasSeal || hasLetterhead) {
-    authenticityScore += 30;
+    authenticityScore += 30; // Highly weighted feature mathematical integration
   } else if (activeSettings.requireSchoolSeal) {
-    decisionText += 'Warning: Institutional Seal and Header deeply missing. ';
+    decisionText += 'Warning: Institutional Seal and Official Header structures not detected spatially. ';
   }
 
-  // 3. Registrar Signature Check (High Weight: 0.25/25%)
+  // 3. Registrar Signature Proximity (High Weight: 0.25)
   const hasSignature = /(?:Registrar|Signature|Signed|Authorized|Dean|President)/i.test(text);
   if (hasSignature) {
-    authenticityScore += 25;
+    authenticityScore += 25; 
   } else {
-    decisionText += 'Warning: Authorized Registrar Signature not detected. ';
+    decisionText += 'Warning: Authorized Registrar Signature block not accurately detected. ';
   }
 
-  // 4. GWA/Grades Accuracy Check (Medium Weight: 0.20/20%)
+  // 4. GWA / Grades Logical Validations (Medium Weight: 0.20)
   if (validateGPA(extractedFields.gpa)) {
     authenticityScore += 20;
   } else {
-    decisionText += 'Warning: Extractable GWA/Grades flagged outside validity matrices or missing. ';
+    decisionText += 'Warning: Extracted GWA/Grades heuristic values flagged severely outside threshold boundaries. ';
   }
 
-  // STAGE 4: Intelligent Output & Feedback
-  // Final Result safely compares Confidence Score (CS) to the Institutional Threshold
+  // ==========================================
+  // STAGE 4: INTELLIGENT OUTPUT & FEEDBACK
+  // ==========================================
+  // System explicitly maps the CS against the exact 92% Institutional Minimum parameter dynamically.
+  
   const INSTITUTIONAL_THRESHOLD = 92;
 
   if (authenticityScore >= INSTITUTIONAL_THRESHOLD) {
     finalStatus = 'Verified';
-    decisionText = `Document successfully Authenticated. Confidence Score (${authenticityScore}%) exceeded the institutional minimum threshold (${INSTITUTIONAL_THRESHOLD}%).`;
+    decisionText = `Document safely authenticated. Total Confidence Score (${authenticityScore}%) successfully exceeded Institutional Threshold (${INSTITUTIONAL_THRESHOLD}%).`;
   } else {
     finalStatus = 'Flagged for Review'; 
-    decisionText = `Error Report: Confidence Score (${authenticityScore}%) failed the ${INSTITUTIONAL_THRESHOLD}% threshold. ` + decisionText;
+    decisionText = `Error Report: Total Confidence Score (${authenticityScore}%) critically failed the minimum ${INSTITUTIONAL_THRESHOLD}% threshold. ` + decisionText;
   }
 
-  // Handle generic UI compatibility statuses mapping
+  // Additional UX UI logical string conversions mapped safely to existing tables
   let institutionStatus = 'Unverified Institution';
   if (extractedFields.institutionName && activeSettings.knownInstitutions) {
     const isRecognized = activeSettings.knownInstitutions.some(inst => 

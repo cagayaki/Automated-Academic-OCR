@@ -42,8 +42,8 @@ const Upload = () => {
           let width = img.width;
           let height = img.height;
           
-          // Aggressive Max dimension 900px slashes file dimensions mathematically
-          const MAX_SIZE = 900;
+          // Restored to High Fidelity Max Dimension (1800px) to guarantee OCR Character Accuracy
+          const MAX_SIZE = 1800;
           if (width > height && width > MAX_SIZE) {
             height *= MAX_SIZE / width;
             width = MAX_SIZE;
@@ -85,7 +85,7 @@ const Upload = () => {
               lastModified: Date.now(),
             });
             resolve(newFile);
-          }, 'image/jpeg', 0.5); // 50% compression strictly overrides rendering times by dropping size to nearly raw minimal values without losing structural OCR integrity
+          }, 'image/jpeg', 0.92); // Massive Quality Ratio upgrade to prevent OCR noise generation
         };
         img.src = event.target.result;
       };
