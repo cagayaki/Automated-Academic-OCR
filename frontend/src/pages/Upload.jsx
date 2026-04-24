@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDropzone } from 'react-dropzone';
 import { UploadCloud, File, X, CheckCircle, Loader2, AlertTriangle } from 'lucide-react';
+import Tesseract from 'tesseract.js';
 import api from '../services/api';
 
 const Upload = () => {
@@ -98,17 +99,29 @@ const Upload = () => {
     setUploading(true);
     setProgress(10); // Start progress indicating preparing
     
-    // Accelereated progress mapping to mirror real API expectations
-    let progInterval = setInterval(() => {
-      setProgress(p => (p < 95 ? p + 20 : p));
-    }, 300);
-
     try {
-      // Instantly COMPRESS the image natively generated from Mobile Phones to bypass API limits!
+      // 1. Instantly COMPRESS the image natively generated from Mobile Phones to bypass Network limits
       const optimizedFile = await compressImage(file);
+      
+      // 2. Execute Tesseract internally across the phone CPU cores (Bypasses API Latency Queue)
+      setProgress(25);
+      const worker = await Tesseract.createWorker('eng', 1, {
+        logger: m => {
+          if (m.status === 'recognizing text') {
+            setProgress(Math.min(30 + Math.floor(m.progress * 50), 85));
+          }
+        }
+      });
+      const { data } = await worker.recognize(optimizedFile);
+      await worker.terminate();
+      setProgress(90);
 
+      // 3. Construct Secure Package Delivery
       const formData = new FormData();
       formData.append('document', optimizedFile);
+      formData.append('clientExtractedText', data.text || ' ');
+      formData.append('clientExtractedConfidence', data.confidence || 0);
+
       const response = await api.post('/documents/upload', formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
@@ -125,11 +138,10 @@ const Upload = () => {
       }, 500);
       
     } catch (error) {
-      clearInterval(progInterval);
-      console.error('Upload failed', error);
+      console.error('Upload Process failed', error);
       const serverMsg = error.response?.data?.message || '';
       const detailedErr = error.response?.data?.error || '';
-      alert(`Failed to process document.\n\n${serverMsg}\n${detailedErr}`);
+      alert(`System fault detected during verification pipeline.\n\n${serverMsg}\n${detailedErr}`);
       setUploading(false);
       setProgress(0);
     }

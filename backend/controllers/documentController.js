@@ -64,7 +64,18 @@ const uploadDocument = async (req, res) => {
       demoDocuments.push(newDoc);
     }
 
-    const ocrData = await ocrService.extractText(absoluteFilePath);
+    const { clientExtractedText, clientExtractedConfidence } = req.body;
+    let ocrData;
+    
+    if (clientExtractedText) {
+      ocrData = {
+        text: clientExtractedText,
+        confidence: parseFloat(clientExtractedConfidence) || 85
+      };
+    } else {
+      ocrData = await ocrService.extractText(absoluteFilePath);
+    }
+    
     newDoc.extractedText = ocrData.text;
     newDoc.ocrConfidence = ocrData.confidence;
 
