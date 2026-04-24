@@ -1,58 +1,62 @@
-const registeredInstitutions = [
-  "Harvard University", "MIT", "Stanford", "UCLA", "Oxford", "Global University", 
-  "Massachusetts Institute of Technology", "Stanford University", "Oxford University"
-];
-
-const validateStudentID = (id) => /^[A-Z0-9-]{5,15}$/i.test(id) && /\d/.test(id);
-
-const validateDate = (dateStr) => {
-  if (!dateStr) return false;
-  const dateObj = new Date(dateStr);
-  return !isNaN(dateObj.getTime()) && dateObj <= new Date(); // Must not be in the future
-};
-
-const validateGPA = (gpa) => {
-  const num = parseFloat(gpa);
-  return !isNaN(num) && ((num >= 1.00 && num <= 5.00) || num >= 0.00); 
-};
-
-// IMPROVED 50% HIGHER FUNCTIONALITY EXTRACTOR
 const extractFields = (text) => {
   const fields = {};
   
-  const studentIdMatch = text.match(/(?:ID|Student No|Registration No)[\s#:]*([A-Z0-9-]{6,12})/i) || text.match(/\b(20\d{2}-\d{5})\b/);
-  fields.studentId = studentIdMatch ? studentIdMatch[1] : null;
+  // Loosen regex to heavily accommodate OCR noise and all caps
+  const studentIdMatch = text.match(/(?:ID|Student|No|Registration|Num)[\s#:=]*([A-Za-z0-9-]{5,15})/i) || text.match(/\b(20\d{2}-\d{4,5})\b/);
+  fields.studentId = studentIdMatch ? studentIdMatch[1].trim() : null;
 
-  const gpaMatch = text.match(/(?:GPA|Grade Point Average|G\.P\.A|CWA)[\s:]*([0-5]\.\d{1,3})/i) || text.match(/\b([1-4]\.\d{2})\b/);
+  const gpaMatch = text.match(/(?:GPA|Grade Point Average|G\.P\.A|CWA|CGPA)[\s:=]*([0-5]\.\d{1,3})/i) || text.match(/\b([1-5]\.\d{2})\b/);
   fields.gpa = gpaMatch ? gpaMatch[1] : null;
   
-  const dateMatch = text.match(/(?:Date Issued|Issued|Date)[\s:]*(\d{2}\/\d{2}\/\d{4}|\d{4}-\d{2}-\d{2}|[A-Za-z]+ \d{1,2}, \d{4})/i) || text.match(/\b(\d{2}\/\d{2}\/\d{4})\b/);
+  const dateMatch = text.match(/(?:Date|Issued|Date Issued)[\s:=]*(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}|[A-Za-z]+ \d{1,2},? \d{4})/i) || text.match(/\b(\d{2}\/\d{2}\/\d{4})\b/);
   fields.dateIssued = dateMatch ? dateMatch[1] : null;
 
-  const courseMatch = text.match(/(?:Course|Program|Degree|Major)[\s:]*([A-Za-z.\s]{5,40}(?:Engineering|Technology|Science|Arts|Business|Nursing|Medicine|IT|Information))/i);
-  fields.course = courseMatch ? courseMatch[1].trim() : null;
+  const courseMatch = text.match(/(?:Course|Program|Degree|Major)[\s:=]*([A-Za-z.\s\-]{5,40}(?:Engineering|Technology|Science|Arts|Business|Nursing|Medicine|IT|Information|Science|Education|Administration))/i) || text.match(/(?:Bachelor|Master|Doctor) of [A-Za-z\s]+/i);
+  fields.course = courseMatch ? (courseMatch[1] ? courseMatch[1].trim() : courseMatch[0].trim()) : null;
 
-  const nameMatch = text.match(/(?:Name|Student|Prepared For)[\s:]*([A-Z][a-z]+ (?:[A-Z]\. )?[A-Z][a-z]+)/i);
-  fields.studentName = nameMatch ? nameMatch[1].trim() : null;
+  const nameMatch = text.match(/(?:Name|Student|Prepared For)[\s:=]*([A-Za-z.,\s]{5,30})/i);
+  // OCR often outputs "Name: JOHN DOE". The old regex failed on all-caps. Widened boundary.
+  fields.studentName = nameMatch ? nameMatch[1].replace(/[\n\r]/g, "").trim() : null;
 
-  const institutionMatch = text.match(/(?:University|College|Institute)[\sA-Za-z]+/i);
+  const institutionMatch = text.match(/(?:University|College|Institute|Academy)[\sA-Za-z]+/i);
   fields.institutionName = institutionMatch ? institutionMatch[0].trim() : null;
 
   return fields;
 };
 
-const verifyDocument = (ocrData, extractedFields) => {
+const verifyDocument = (ocrData, extractedFields, activeSettings) => {
   const text = ocrData.text || '';
   
+  // Custom Framework Parameters validation bindings
+  const validateStudentID = (id) => new RegExp(activeSettings.studentIdFormat, 'i').test(id);
+
+  const validateDate = (dateStr) => {
+    if (!dateStr) return false;
+    const dateObj = new Date(dateStr);
+    if (isNaN(dateObj.getTime())) return false;
+    
+    // Temporal Logic
+    const currentDate = new Date();
+    const thresholdDate = new Date();
+    thresholdDate.setFullYear(currentDate.getFullYear() - activeSettings.temporalValidityYears);
+    
+    return dateObj <= currentDate && dateObj >= thresholdDate; 
+  };
+
+  const validateGPA = (gpa) => {
+    const num = parseFloat(gpa);
+    return !isNaN(num) && (num >= activeSettings.gpaMin && num <= activeSettings.gpaMax); 
+  };
+
   // 1. Authenticity Rules: Letterhead, Logo, Registrar Signature, Seal
-  const hasLetterheadOrLogo = /University|College|Institute|School|Academy/i.test(text.substring(0, 500));
+  const hasLetterheadOrLogo = /University|College|Institute|School|Academy|Pamantasan/i.test(text.substring(0, 500));
   const hasSignature = /(?:Registrar|Signature|Signed|Authorized|Dean|President)/i.test(text);
   const hasSeal = /(?:Seal|Stamp|Official|Certified|Registrar)/i.test(text);
 
   // 5. Institution Verification
   let institutionStatus = 'Unverified Institution';
-  if (extractedFields.institutionName) {
-    const isRecognized = registeredInstitutions.some(inst => 
+  if (extractedFields.institutionName && activeSettings.knownInstitutions) {
+    const isRecognized = activeSettings.knownInstitutions.some(inst => 
       extractedFields.institutionName.toLowerCase().includes(inst.toLowerCase()) || 
       inst.toLowerCase().includes(extractedFields.institutionName.toLowerCase())
     );
@@ -61,8 +65,27 @@ const verifyDocument = (ocrData, extractedFields) => {
 
   // Engine Decisions
   let finalStatus = 'Valid';
-  let decisionText = 'Document verified successfully. All 8 heuristic rule checks passed.';
+  let decisionText = 'Document verified successfully. All custom heuristic rule checks passed.';
   let authenticityScore = 100;
+
+  // Track completeness against activeSettings.requiredFields mapping
+  const fieldMapping = {
+    'Name': extractedFields.studentName,
+    'ID': extractedFields.studentId,
+    'Course': extractedFields.course,
+    'Institution': extractedFields.institutionName,
+    'Date': extractedFields.dateIssued,
+    'GPA': extractedFields.gpa
+  };
+  
+  let missingRequiredFields = false;
+  if (activeSettings.requiredFields && activeSettings.requiredFields.length > 0) {
+    activeSettings.requiredFields.forEach(req => {
+      // mapping array string exactly
+      const key = Object.keys(fieldMapping).find(k => req.toLowerCase().includes(k.toLowerCase()));
+      if (key && !fieldMapping[key]) missingRequiredFields = true;
+    });
+  }
 
   // Rule 6: Image/Text Quality Validation
   if (ocrData.confidence < 70) {
@@ -76,37 +99,37 @@ const verifyDocument = (ocrData, extractedFields) => {
     decisionText = 'Document flagged as Invalid. No authorized signature detected on document.';
     authenticityScore -= 30;
   }
-  else if (!hasLetterheadOrLogo) {
-    finalStatus = 'Needs Review';
-    decisionText = 'Flagged for Review: No official school name or logo detected in the header document structure.';
+  else if (activeSettings.requireSchoolSeal && !hasSeal && !hasLetterheadOrLogo) {
+    finalStatus = 'Inconsistent';
+    decisionText = 'Error Report: Document flagged as Inconsistent. The active Mandatory School Seal rule failed because no legitimate institutional logo or seal was detected by the heuristic engine.';
     authenticityScore -= 15;
   }
   // Rule 2: Completeness Validation
-  else if (!extractedFields.studentName || !extractedFields.studentId || !extractedFields.course || !extractedFields.institutionName || !extractedFields.dateIssued || !extractedFields.gpa) {
+  else if (missingRequiredFields) {
     finalStatus = 'Incomplete';
-    decisionText = 'Document is Incomplete. One or more mandatory fields are completely missing.';
+    decisionText = 'Document is Incomplete. One or more mandatory fields explicitly required by the Administrator are completely missing.';
     authenticityScore -= 25;
   }
   // Rule 5: Unverified Institution
   else if (institutionStatus !== 'Verified') {
     finalStatus = 'Unverified';
-    decisionText = 'Issuing institution is Unverified. It does not exist in the registered institutional database.';
+    decisionText = 'Issuing institution is Unverified. It does not exist in the dynamic administrative registered database.';
     authenticityScore -= 20;
   }
   // Rule 3: Format Validation & Rule 8: Issuance
   else if (!validateDate(extractedFields.dateIssued)) {
     finalStatus = 'Invalid';
-    decisionText = 'Document Format Error: Extracted date format is unrecognized or issued in the future.';
+    decisionText = `Document Format Error: Date unrecognized or outside the strict ${activeSettings.temporalValidityYears}-year validity temporal constraint.`;
     authenticityScore -= 15;
   }
   // Rule 4: Consistency
   else if (!validateGPA(extractedFields.gpa)) {
     finalStatus = 'Inconsistent'; 
-    decisionText = 'Consistency Error: Extracted GPA grades fall vastly outside the universal validity range.';
+    decisionText = `Consistency Error: Extracted GPA falls outside the custom validity range (${activeSettings.gpaMin.toFixed(2)} - ${activeSettings.gpaMax.toFixed(2)}).`;
     authenticityScore -= 20;
   }
 
-  // Populate checks structure for the Results UI components dynamically
+  // Populate checks structure for the Results UI dynamically
   const results = {
     checks: {
       ocrQuality: {
