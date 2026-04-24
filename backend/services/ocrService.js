@@ -22,9 +22,10 @@ const extractText = async (absoluteFilePath) => {
         confidence: data.text.trim().length > 50 ? 98 : 45
       };
     } else {
-      // Deploy hyper-fast localized AI dictionary (tessdata_fast) straight into Node limits to execute in 2.0s universally
+      const os = require('os');
       const worker = await Tesseract.createWorker('eng', 1, {
         langPath: 'https://tessdata.projectnaptha.com/4.0.0_fast', // Uses ultra-optimized 3MB payload natively
+        cachePath: os.tmpdir(), // Absolutely critical for Vercel: redirects AI caching loops strictly to Serverless writable Ephemeral Storage
         gzip: true
       });
       const { data } = await worker.recognize(absoluteFilePath);
