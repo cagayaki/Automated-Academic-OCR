@@ -2,7 +2,6 @@ import { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDropzone } from 'react-dropzone';
 import { UploadCloud, File, X, CheckCircle, Loader2, AlertTriangle } from 'lucide-react';
-import Tesseract from 'tesseract.js';
 import api from '../services/api';
 
 const Upload = () => {
@@ -106,29 +105,10 @@ const Upload = () => {
     try {
       // 1. Instantly COMPRESS the image natively generated from Mobile Phones to bypass Network limits
       const optimizedFile = await compressImage(file);
-      
-      // 2. Execute Tesseract internally across the phone CPU cores (Bypasses API Latency Queue)
-      const worker = await Tesseract.createWorker('eng', 1, {
-        logger: m => {
-          // Visually map exactly what the WebWorker is doing to the Progress Bar securely
-          if (m.status === 'loading tesseract core' || m.status === 'loading language traineddata') {
-            setProgress(Math.min(25 + Math.floor(m.progress * 40), 65));
-          } else if (m.status === 'recognizing text') {
-            setProgress(Math.min(65 + Math.floor(m.progress * 25), 90));
-          }
-        }
-      });
-      const { data } = await worker.recognize(optimizedFile);
-      await worker.terminate();
-      
-      clearInterval(progInterval);
-      setProgress(95);
 
-      // 3. Construct Secure Package Delivery
+      // 2. Construct Secure Package Delivery
       const formData = new FormData();
       formData.append('document', optimizedFile);
-      formData.append('clientExtractedText', data.text || ' ');
-      formData.append('clientExtractedConfidence', data.confidence || 0);
 
       const response = await api.post('/documents/upload', formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
