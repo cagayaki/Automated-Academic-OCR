@@ -122,6 +122,32 @@ const Results = () => {
 
         {/* Right Column: Detailed Results */}
         <div className="col-span-1 lg:col-span-2 space-y-6">
+
+          {/* STAGE 4 ENHANCEMENT: Algorithmic Trust Heatmap directly surfacing internal node parameters mathematically */}
+          <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+            <div className="bg-white border-b border-slate-100 px-6 py-5">
+              <h2 className="font-bold text-slate-800">Mathematical Weight Diagnostics</h2>
+              <p className="text-xs text-slate-500 mt-1">Algorithmic Base Value Matrix directly generating the {doc.authenticityScore}% Confidence calculation.</p>
+            </div>
+            <div className="p-6 bg-slate-50 flex gap-4 overflow-x-auto">
+              <div className={`shrink-0 px-4 py-3 rounded-xl border flex flex-col justify-center min-w-[120px] ${checks.requiredFields?.score > 50 && checks.issuance?.score > 50 ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-rose-50 border-rose-200 text-rose-800'}`}>
+                <span className="text-2xl font-bold">{checks.requiredFields?.score > 50 && checks.issuance?.score > 50 ? '+25%' : '+0%'}</span>
+                <span className="text-[10px] font-bold uppercase tracking-wider mt-1 opacity-80">Base Attributes</span>
+              </div>
+              <div className={`shrink-0 px-4 py-3 rounded-xl border flex flex-col justify-center min-w-[120px] ${checks.institution?.keywordDetection?.includes('Found') || checks.institution?.formatting?.includes('Detected') ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-rose-50 border-rose-200 text-rose-800'}`}>
+                <span className="text-2xl font-bold">{checks.institution?.keywordDetection?.includes('Found') || checks.institution?.formatting?.includes('Detected') ? '+30%' : '+0%'}</span>
+                <span className="text-[10px] font-bold uppercase tracking-wider mt-1 opacity-80">School Seal / Header</span>
+              </div>
+              <div className={`shrink-0 px-4 py-3 rounded-xl border flex flex-col justify-center min-w-[120px] ${checks.consistency?.courseExists?.includes('Found') ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-rose-50 border-rose-200 text-rose-800'}`}>
+                <span className="text-2xl font-bold">{checks.consistency?.courseExists?.includes('Found') ? '+25%' : '+0%'}</span>
+                <span className="text-[10px] font-bold uppercase tracking-wider mt-1 opacity-80">Reg. Signature Scan</span>
+              </div>
+              <div className={`shrink-0 px-4 py-3 rounded-xl border flex flex-col justify-center min-w-[120px] ${checks.dataFormat?.gpaValid ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-rose-50 border-rose-200 text-rose-800'}`}>
+                <span className="text-2xl font-bold">{checks.dataFormat?.gpaValid ? '+20%' : '+0%'}</span>
+                <span className="text-[10px] font-bold uppercase tracking-wider mt-1 opacity-80">GPA Threshold Logic</span>
+              </div>
+            </div>
+          </div>
           
           <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
             <div className="bg-white border-b border-slate-100 px-6 py-5">

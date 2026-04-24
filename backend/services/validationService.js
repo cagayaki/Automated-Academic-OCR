@@ -45,18 +45,18 @@ const extractFields = (text) => {
     '([A-Za-z0-9-]{6,15})'
   ) || text.match(/\b(20\d{2}-\d{4,5})\b/)?.[1];
 
-  // Heuristic Semantic Target 2: GWA / GPA
+  // Stage 2 Enhancement: Array specifically expanded logically to tolerate Fuzzy OCR character spelling artifacts
   fields.gpa = extractByProximity(
     text, 
-    ['GPA', 'GWA', 'Grade Point Average', 'CWA', 'CGPA', 'Weighted Average', 'Grade'], 
+    ['GPA', 'GWA', 'Grade Point Average', 'CWA', 'CGPA', 'Weighted Average', 'Grade', 'OWA', 'C.W.A', 'G.W.A', 'GRD'], 
     '([1-5]\\.\\d{2,3})',
     80 // Narrower proximity to safely prevent picking up random document numbers
   );
   
-  // Heuristic Semantic Target 3: Date Issued
+  // Stage 2 Enhancement: Fuzzy linguistic definitions for 'Date' artifacts natively mapped inside proximity limits
   fields.dateIssued = extractByProximity(
     text, 
-    ['Date', 'Issued', 'Date Issued'], 
+    ['Date', 'Issued', 'Date Issued', 'Oate', 'lsued', 'Issue'], 
     '(\\d{1,2}[\\/\\-]\\d{1,2}[\\/\\-]\\d{2,4}|[A-Za-z]+ \\d{1,2},? \\d{4})'
   ) || text.match(/\b(\d{2}\/\d{2}\/\d{4})\b/)?.[1];
 
@@ -101,6 +101,16 @@ const verifyDocument = (ocrData, extractedFields, activeSettings) => {
   let finalStatus = 'Valid';
   let decisionText = '';
 
+  // Stage 3 Enhancement: Temporal Logic Sequences (Preventing forged Future Issue Dates absolutely)
+  let failedTemporalMath = false;
+  if (extractedFields.dateIssued) {
+    const parsedDate = new Date(extractedFields.dateIssued);
+    if (!isNaN(parsedDate) && parsedDate > new Date()) {
+      failedTemporalMath = true;
+      decisionText += 'CRITICAL RULE FAILURE: Extracted Issue Date calculates to a mathematical temporal impossibility (Future Date). ';
+    }
+  }
+
   // 1. Mandatory Core Attributes Base Check 
   const fieldMapping = {
     'Name': extractedFields.studentName,
@@ -120,9 +130,9 @@ const verifyDocument = (ocrData, extractedFields, activeSettings) => {
   }
   
   // Missing required data drops the Base Weight globally
-  if (!missingRequiredFields) {
-    authenticityScore += 25; // Base Weight: 25%
-  } else {
+  if (!missingRequiredFields && !failedTemporalMath) {
+    authenticityScore += 25; // Base Weight: 25% conditionally allocated conditionally
+  } else if (!failedTemporalMath) {
     decisionText += 'Missing one or more required Semantic Anchors payload data. ';
   }
 
@@ -210,9 +220,9 @@ const verifyDocument = (ocrData, extractedFields, activeSettings) => {
         courseExists: hasSignature ? 'Signature Found' : 'Missing Signature'
       },
       issuance: {
-        score: 100,
-        notFuture: 'Valid Timeline',
-        validPeriod: 'Passed'
+        score: failedTemporalMath ? 0 : 100,
+        notFuture: failedTemporalMath ? 'INVALID TIMELINE FLAG' : 'Valid Timeline',
+        validPeriod: failedTemporalMath ? 'Failed' : 'Passed'
       }
     },
     authenticityScore: authenticityScore,
