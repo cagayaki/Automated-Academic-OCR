@@ -2,7 +2,6 @@ import { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDropzone } from 'react-dropzone';
 import { UploadCloud, File, X, CheckCircle, Loader2, AlertTriangle } from 'lucide-react';
-import Tesseract from 'tesseract.js';
 import api from '../services/api';
 
 const Upload = () => {
@@ -42,8 +41,8 @@ const Upload = () => {
           let width = img.width;
           let height = img.height;
           
-          // Restored to High Fidelity Max Dimension (1800px) to guarantee OCR Character Accuracy
-          const MAX_SIZE = 1800;
+          // 1500px tightly balances Absolute Pristine Accuracy vs Ultra-Fast API Transit Speeds
+          const MAX_SIZE = 1500;
           if (width > height && width > MAX_SIZE) {
             height *= MAX_SIZE / width;
             width = MAX_SIZE;
@@ -57,20 +56,6 @@ const Upload = () => {
           const ctx = canvas.getContext('2d');
           ctx.drawImage(img, 0, 0, width, height);
 
-          // STAGE 1: OCR PRE-PROCESSING (Grayscale & Noise Reduction)
-          const imageData = ctx.getImageData(0, 0, width, height);
-          const data = imageData.data;
-          
-          for (let i = 0; i < data.length; i += 4) {
-            // Apply luminance Grayscale math
-            const avg = 0.3 * data[i] + 0.59 * data[i + 1] + 0.11 * data[i + 2];
-            
-            // Apply Noise Reduction via High Contrast Thresholding to make noisy inputs readable
-            const threshold = 135; 
-            const contrast = avg > threshold ? 245 : 0;
-            
-            data[i] = contrast;     // Record RED
-            data[i + 1] = contrast; // Record GREEN
             data[i + 2] = contrast; // Record BLUE
           }
           ctx.putImageData(imageData, 0, 0);
@@ -100,32 +85,16 @@ const Upload = () => {
     setProgress(10); // Start progress indicating preparing
     
     let progInterval = setInterval(() => {
-      setProgress(p => Math.min(p + 15, 80)); // Safe visual bump to heavily minimize loading anxiety
-    }, 400);
+      setProgress(p => Math.min(p + 15, 85)); // Simulates backend queue safely
+    }, 600);
 
     try {
-      // 1. Instantly COMPRESS the image natively generated from Mobile Phones to bypass Network limits
+      // 1. Pristine HTML5 AI Compression to dramatically slash API queueing latency 
       const optimizedFile = await compressImage(file);
-
-      // 2. Ultra-Fast Client-side Edge Computing (Bypasses all Server APIs securely without freezing)
-      const worker = await Tesseract.createWorker('eng', 1, {
-        langPath: 'https://tessdata.projectnaptha.com/4.0.0_fast', // Uses lightweight 3MB packet instead of 24MB
-        logger: m => {
-          if (m.status === 'recognizing text') {
-            setProgress(Math.min(30 + Math.floor(m.progress * 50), 85));
-          }
-        }
-      });
-      const { data } = await worker.recognize(optimizedFile);
-      await worker.terminate();
-
-      clearInterval(progInterval);
-      setProgress(95);
-
-      // 3. Construct Secure Package Delivery
+      
+      // 2. Construct Secure Package Delivery (Sent to Vercel strictly for High-Performance Backend AI)
       const formData = new FormData();
       formData.append('document', optimizedFile);
-      formData.append('clientExtractedText', data.text || ' ');
 
       const response = await api.post('/documents/upload', formData, {
         headers: { 'Content-Type': 'multipart/form-data' }

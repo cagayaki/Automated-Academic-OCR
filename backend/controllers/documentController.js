@@ -63,18 +63,7 @@ const uploadDocument = async (req, res) => {
       };
       demoDocuments.push(newDoc);
     }
-    const { clientExtractedText } = req.body;
-    let ocrData;
-    
-    if (clientExtractedText) {
-      ocrData = {
-        text: clientExtractedText,
-        confidence: 85 // Safe absolute heuristic assumption
-      };
-    } else {
-      ocrData = await ocrService.extractText(absoluteFilePath);
-    }
-    
+    const ocrData = await ocrService.extractText(absoluteFilePath);
     newDoc.extractedText = ocrData.text;
     newDoc.ocrConfidence = ocrData.confidence;
 
