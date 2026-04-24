@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDropzone } from 'react-dropzone';
 import { UploadCloud, File, X, CheckCircle, Loader2, AlertTriangle } from 'lucide-react';
+import Tesseract from 'tesseract.js';
 import api from '../services/api';
 
 const Upload = () => {
@@ -106,9 +107,25 @@ const Upload = () => {
       // 1. Instantly COMPRESS the image natively generated from Mobile Phones to bypass Network limits
       const optimizedFile = await compressImage(file);
 
-      // 2. Construct Secure Package Delivery
+      // 2. Ultra-Fast Client-side Edge Computing (Bypasses all Server APIs securely without freezing)
+      const worker = await Tesseract.createWorker('eng', 1, {
+        langPath: 'https://tessdata.projectnaptha.com/4.0.0_fast', // Uses lightweight 3MB packet instead of 24MB
+        logger: m => {
+          if (m.status === 'recognizing text') {
+            setProgress(Math.min(30 + Math.floor(m.progress * 50), 85));
+          }
+        }
+      });
+      const { data } = await worker.recognize(optimizedFile);
+      await worker.terminate();
+
+      clearInterval(progInterval);
+      setProgress(95);
+
+      // 3. Construct Secure Package Delivery
       const formData = new FormData();
       formData.append('document', optimizedFile);
+      formData.append('clientExtractedText', data.text || ' ');
 
       const response = await api.post('/documents/upload', formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
