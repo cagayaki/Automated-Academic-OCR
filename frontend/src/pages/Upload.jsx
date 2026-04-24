@@ -99,22 +99,30 @@ const Upload = () => {
     setUploading(true);
     setProgress(10); // Start progress indicating preparing
     
+    let progInterval = setInterval(() => {
+      setProgress(p => Math.min(p + 15, 80)); // Safe visual bump to heavily minimize loading anxiety
+    }, 400);
+
     try {
       // 1. Instantly COMPRESS the image natively generated from Mobile Phones to bypass Network limits
       const optimizedFile = await compressImage(file);
       
       // 2. Execute Tesseract internally across the phone CPU cores (Bypasses API Latency Queue)
-      setProgress(25);
       const worker = await Tesseract.createWorker('eng', 1, {
         logger: m => {
-          if (m.status === 'recognizing text') {
-            setProgress(Math.min(30 + Math.floor(m.progress * 50), 85));
+          // Visually map exactly what the WebWorker is doing to the Progress Bar securely
+          if (m.status === 'loading tesseract core' || m.status === 'loading language traineddata') {
+            setProgress(Math.min(25 + Math.floor(m.progress * 40), 65));
+          } else if (m.status === 'recognizing text') {
+            setProgress(Math.min(65 + Math.floor(m.progress * 25), 90));
           }
         }
       });
       const { data } = await worker.recognize(optimizedFile);
       await worker.terminate();
-      setProgress(90);
+      
+      clearInterval(progInterval);
+      setProgress(95);
 
       // 3. Construct Secure Package Delivery
       const formData = new FormData();
@@ -138,9 +146,10 @@ const Upload = () => {
       }, 500);
       
     } catch (error) {
+      clearInterval(progInterval);
       console.error('Upload Process failed', error);
-      const serverMsg = error.response?.data?.message || '';
-      const detailedErr = error.response?.data?.error || '';
+      const serverMsg = error.response?.data?.message || 'The Artificial Intelligence Worker failed to safely load.';
+      const detailedErr = error.response?.data?.error || error.message || '';
       alert(`System fault detected during verification pipeline.\n\n${serverMsg}\n${detailedErr}`);
       setUploading(false);
       setProgress(0);
