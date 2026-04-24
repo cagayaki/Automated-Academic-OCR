@@ -1,0 +1,10 @@
+# Automated-Academic-OCR
+Here's our Automated Academic OCR for our thesis 1
+
+GROUP CSA-3 MEMBERS: 
+
+JOHN MARK BARRAMEDA 
+NATHAN D. BRIONES 
+KURT JOHN B. CAGAYAN 
+
+
