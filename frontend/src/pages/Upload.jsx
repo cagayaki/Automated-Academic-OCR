@@ -66,7 +66,7 @@ const Upload = () => {
               lastModified: Date.now(),
             });
             resolve(newFile);
-          }, 'image/jpeg', 0.92); // Massive Quality Ratio upgrade to prevent OCR noise generation
+          }, 'image/jpeg', 0.80); // Balanced 80% Quality strictly prevents the API latency from breaking Vercel's 10s ceiling
         };
         img.src = event.target.result;
       };
@@ -110,7 +110,7 @@ const Upload = () => {
     } catch (error) {
       clearInterval(progInterval);
       console.error('Upload Process failed', error);
-      const serverMsg = error.response?.data?.message || 'The Artificial Intelligence Worker failed to safely load.';
+      const serverMsg = error.response?.data?.message || 'Network Severless Timeout (Vercel strictly killed connection at 10.0s due to payload weight).';
       const detailedErr = error.response?.data?.error || error.message || '';
       alert(`System fault detected during verification pipeline.\n\n${serverMsg}\n${detailedErr}`);
       setUploading(false);
