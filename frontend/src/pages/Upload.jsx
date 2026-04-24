@@ -179,21 +179,14 @@ const Upload = () => {
             </div>
 
             {uploading ? (
-              <div className="space-y-3">
-                <div className="flex justify-between items-center text-sm font-medium">
-                  <span className="text-blue-600 flex items-center gap-2">
-                    <Loader2 size={16} className="animate-spin" />
-                    Processing with OCR Engine...
+              <div className="space-y-4 py-3">
+                <div className="flex justify-center items-center text-sm font-medium">
+                  <span className="text-blue-600 flex items-center gap-3">
+                    <Loader2 size={24} className="animate-spin text-blue-600" />
+                    <span className="text-lg">Processing Document Arrays...</span>
                   </span>
-                  <span className="text-slate-600">{progress}%</span>
                 </div>
-                <div className="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden">
-                  <div 
-                    className="bg-blue-600 h-2.5 rounded-full transition-all duration-300 ease-out"
-                    style={{ width: `${progress}%` }}
-                  ></div>
-                </div>
-                <p className="text-xs text-slate-500 text-center animate-pulse">Running format validation and consistency checks...</p>
+                <p className="text-sm border-t border-slate-100 pt-3 text-slate-500 text-center animate-pulse">Running advanced format validation and mathematical checks natively. This safely requires 10 to 15 seconds to fully complete cloud extraction limits.</p>
               </div>
             ) : (
               <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
