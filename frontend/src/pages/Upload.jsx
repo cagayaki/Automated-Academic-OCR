@@ -55,6 +55,24 @@ const Upload = () => {
           canvas.height = height;
           const ctx = canvas.getContext('2d');
           ctx.drawImage(img, 0, 0, width, height);
+
+          // STAGE 1: OCR PRE-PROCESSING (Grayscale & Noise Reduction)
+          const imageData = ctx.getImageData(0, 0, width, height);
+          const data = imageData.data;
+          
+          for (let i = 0; i < data.length; i += 4) {
+            // Apply luminance Grayscale math
+            const avg = 0.3 * data[i] + 0.59 * data[i + 1] + 0.11 * data[i + 2];
+            
+            // Apply Noise Reduction via High Contrast Thresholding to make noisy inputs readable
+            const threshold = 135; 
+            const contrast = avg > threshold ? 245 : 0;
+            
+            data[i] = contrast;     // Record RED
+            data[i + 1] = contrast; // Record GREEN
+            data[i + 2] = contrast; // Record BLUE
+          }
+          ctx.putImageData(imageData, 0, 0);
           
           canvas.toBlob((blob) => {
             if (!blob) {
