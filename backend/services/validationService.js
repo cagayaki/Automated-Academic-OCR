@@ -194,15 +194,30 @@ const verifyDocument = (ocrData, extractedFields, activeSettings) => {
   let decisionText = '';
   const weightBreakdown = {};
 
-  // --- Temporal Check (before scoring) ---
+  // --- Temporal Validity Logic (from Admin Configuration) ---
+  // Checks: (A) Is the date in the future? (B) Is the document older than the admin-configured threshold?
   let failedTemporalMath = false;
+  let temporalReason = '';
+  const maxAge = activeSettings?.temporalValidityYears ?? 5;
+
   if (extractedFields.dateIssued) {
     const parsedDate = new Date(extractedFields.dateIssued);
-    if (!isNaN(parsedDate) && parsedDate > new Date()) {
-      failedTemporalMath = true;
-      decisionText += 'CRITICAL: Issue Date is in the future — possible forgery. ';
+    if (!isNaN(parsedDate)) {
+      const now = new Date();
+      // (A) Future date check
+      if (parsedDate > now) {
+        failedTemporalMath = true;
+        temporalReason = 'Issue Date is in the future — possible forgery.';
+      }
+      // (B) Expiration threshold check
+      const ageInYears = (now - parsedDate) / (365.25 * 24 * 60 * 60 * 1000);
+      if (!failedTemporalMath && ageInYears > maxAge) {
+        failedTemporalMath = true;
+        temporalReason = `Document expired: issued ${Math.floor(ageInYears)} years ago, threshold is ${maxAge} years.`;
+      }
     }
   }
+  if (failedTemporalMath) decisionText += `TEMPORAL RULE FAILURE: ${temporalReason} `;
 
   // --- 1. Base Fields (25 pts) ---
   const fieldMapping = {
