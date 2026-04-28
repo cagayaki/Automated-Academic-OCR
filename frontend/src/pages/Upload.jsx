@@ -3,11 +3,12 @@ import { useNavigate } from 'react-router-dom';
 import { useDropzone } from 'react-dropzone';
 import { UploadCloud, File, X, CheckCircle, Loader2, AlertTriangle } from 'lucide-react';
 import api from '../services/api';
+import Tesseract from 'tesseract.js';
 
 const Upload = () => {
   const [file, setFile] = useState(null);
   const [uploading, setUploading] = useState(false);
-  const [progress, setProgress] = useState(0);
+  const [progressStatus, setProgressStatus] = useState('Processing Document Arrays...'); // Dynamic Progress string
   const navigate = useNavigate();
 
   const onDrop = useCallback(acceptedFiles => {
@@ -106,16 +107,36 @@ const Upload = () => {
     if (!file) return;
     
     setUploading(true);
-    setProgress(50); // Set absolute mid-point execution state reliably 
+    setProgressStatus('Pre-processing Image Arrays...');
 
     try {
       // 1. Pristine HTML5 AI Compression to dramatically slash API queueing latency 
       const optimizedFile = await compressImage(file);
-      
-      // 2. Construct Secure Package Delivery (Sent to Vercel strictly for High-Performance Backend AI)
       const formData = new FormData();
       formData.append('document', optimizedFile);
+      
+      // 2. CLIENT-SIDE TESSERACT OCR EXECUTION (Bypassing Vercel Timeout Restrictions entirely!)
+      if (optimizedFile.type.startsWith('image/')) {
+        setProgressStatus('Running Client-Side OCR Engine locally...');
+        // Instantiating Tesseract in the User's Browser natively
+        const worker = await Tesseract.createWorker('eng', 1, {
+          logger: m => {
+            if (m.status === 'recognizing text') {
+              setProgressStatus(`Extracting Data Layer: ${Math.round(m.progress * 100)}%`);
+            }
+          }
+        });
+        
+        const { data: { text, confidence } } = await worker.recognize(optimizedFile);
+        await worker.terminate();
+        
+        // Feed the extracted data securely into the backend so Vercel doesn't have to process the image mathematically
+        formData.append('extractedText', text);
+        formData.append('ocrConfidence', confidence);
+        setProgressStatus('Finalizing Cloud Verification Math...');
+      }
 
+      // 3. Construct Secure Package Delivery (Sent to Vercel strictly for High-Performance Backend AI Validation)
       const response = await api.post('/documents/upload', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
         timeout: 15000 // 15s max — prevents infinite hang
@@ -193,10 +214,10 @@ const Upload = () => {
                 <div className="flex justify-center items-center text-sm font-medium">
                   <span className="text-blue-600 flex items-center gap-3">
                     <Loader2 size={24} className="animate-spin text-blue-600" />
-                    <span className="text-lg">Processing Document Arrays...</span>
+                    <span className="text-lg">{progressStatus}</span>
                   </span>
                 </div>
-                <p className="text-sm border-t border-slate-100 pt-3 text-slate-500 text-center animate-pulse">Running advanced format validation and mathematical checks natively. This safely requires 10 to 15 seconds to fully complete cloud extraction limits.</p>
+                <p className="text-sm border-t border-slate-100 pt-3 text-slate-500 text-center animate-pulse">Running advanced format validation and mathematical checks natively. The system uses your local device CPU to securely bypass slow API rate limits.</p>
               </div>
             ) : (
               <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">

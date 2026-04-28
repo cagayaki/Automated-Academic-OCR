@@ -63,7 +63,17 @@ const uploadDocument = async (req, res) => {
       };
       demoDocuments.push(newDoc);
     }
-    const ocrData = await ocrService.extractText(absoluteFilePath);
+    let ocrData;
+    // Bypassing Backend execution if the Client's Browser natively completed the OCR computation
+    if (req.body.extractedText) {
+      ocrData = {
+        text: req.body.extractedText,
+        confidence: Number(req.body.ocrConfidence) || 85
+      };
+    } else {
+      ocrData = await ocrService.extractText(absoluteFilePath);
+    }
+    
     newDoc.extractedText = ocrData.text;
     newDoc.ocrConfidence = ocrData.confidence;
 
