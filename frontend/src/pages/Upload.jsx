@@ -41,8 +41,8 @@ const Upload = () => {
           let width = img.width;
           let height = img.height;
           
-          // 1200px balances OCR accuracy vs payload speed on Vercel (base64 encoded)
-          const MAX_SIZE = 1200;
+          // 1000px + 70% quality keeps images under 1MB for the free OCR API
+          const MAX_SIZE = 1000;
           if (width > height && width > MAX_SIZE) {
             height *= MAX_SIZE / width;
             width = MAX_SIZE;
@@ -94,7 +94,7 @@ const Upload = () => {
               lastModified: Date.now(),
             });
             resolve(newFile);
-          }, 'image/jpeg', 0.80); // Balanced 80% Quality strictly prevents the API latency from breaking Vercel's 10s ceiling
+          }, 'image/jpeg', 0.70); // 70% quality — keeps file under 1MB for free OCR API
         };
         img.src = event.target.result;
       };
@@ -117,7 +117,8 @@ const Upload = () => {
       formData.append('document', optimizedFile);
 
       const response = await api.post('/documents/upload', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
+        headers: { 'Content-Type': 'multipart/form-data' },
+        timeout: 15000 // 15s max — prevents infinite hang
       });
       setProgress(100);
       
