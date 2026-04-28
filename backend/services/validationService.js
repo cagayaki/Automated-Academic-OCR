@@ -113,14 +113,24 @@ const extractFields = (rawText) => {
     text.match(/\b(\d{2}[\/\-]\d{2}[\/\-]\d{4})\b/)?.[1];
 
   // --- 4. Course / Degree Program ---
+  // Use simple proximity grab first, then direct-scan fallback with compiled RegExp literals
   fields.course =
     extractByProximity(text,
-      ['Course', 'Program', 'Degree', 'Degree Program', 'Field of Study',
-       'Major', 'Bachelor', 'Master', 'Doctor', 'Diploma in', 'Certificate in'],
-      // Common PH degree patterns — Bachelor of Science in ..., BSCS, BSIT, etc.
-      '((?:Bachelor|Master|Doctor|Juris|Associate)[^\n]{3,60}(?:Science|Arts|Engineering|Technology|Business|Nursing|Medicine|Education|Laws|Philosophy|Fine|Information|Management|Administration|Commerce|Public|Social|Communication|Architecture|Agriculture|Accountancy|Tourism|Criminology|Theology|Pharmacy|Dentistry|Optometry|Radiologic|Medical|Psychology|Music|Library|Forestry|Fisheries|Nutrition|Midwifery|Physical|Occupational|Technology|Maritime|Geodetic|Sanitary|Chemical|Civil|Electrical|Electronics|Industrial|Mechanical|Computer|Environmental|Mining|Petroleum)[^\n]{0,40})|(?:BS|AB|BEd|BSN|BFA|LLB|BSA|BSBA|BSCS|BSIT|BSHRM|BSMT|BSEE|BSCE|BSME|BSCE|BSCRIM|BSPH|BSPT|BSOT|BSRT|DDS|MD|PhD|MA|MBA|MPA|MSN|JD)[^\n]{0,40})',
+      ['Course', 'Program', 'Degree', 'Degree Program', 'Field of Study', 'Major'],
+      // Simple: grab text after anchor that starts with Bachelor/Master/Doctor/Associate or BS/AB prefix
+      '((?:Bachelor|Master|Doctor|Associate|Juris)[^\\n]{5,80})',
       30, 200
-    );
+    ) ||
+    // Direct fallback: scan for common PH degree abbreviations anywhere in the text
+    (() => {
+      const abbrevMatch = text.match(/\b(BS[A-Z]{1,6}|AB[A-Z]{0,4}|BSBA|BSCS|BSIT|BSHRM|BSMT|BSEE|BSCE|BSME|BSCRIM|BSN|BFA|BEd|LLB|BSA|MBA|MPA|MA|PhD|MD|JD|DDS)\b[^\n]{0,60}/i);
+      return abbrevMatch ? abbrevMatch[0].trim() : null;
+    })() ||
+    // Last fallback: grab any line containing "Bachelor of" or "Science in" etc.
+    (() => {
+      const fullMatch = text.match(/(?:Bachelor|Master|Doctor)\s+(?:of\s+)?(?:Science|Arts|Education|Laws|Fine Arts|Philosophy)[^\n]{0,80}/i);
+      return fullMatch ? fullMatch[0].trim() : null;
+    })();
 
   // --- 5. Student Name ---
   fields.studentName =
