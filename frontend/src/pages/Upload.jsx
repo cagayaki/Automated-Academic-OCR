@@ -141,7 +141,7 @@ const Upload = () => {
         headers: { 'Content-Type': 'multipart/form-data' },
         timeout: 15000 // 15s max — prevents infinite hang
       });
-      setProgress(100);
+      setProgressStatus('Complete!');
       
       // Save locally to prevent Vercel Serverless container memory loss between routes
       if (response.data?.document?._id.startsWith('demo-doc')) {
@@ -158,7 +158,7 @@ const Upload = () => {
       const detailedErr = error.response?.data?.error || error.message || '';
       alert(`System fault detected during verification pipeline.\n\n${serverMsg}\n${detailedErr}`);
       setUploading(false);
-      setProgress(0);
+      setProgressStatus('Processing Document Arrays...');
     }
   };
 
