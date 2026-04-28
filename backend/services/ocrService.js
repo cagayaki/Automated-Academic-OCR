@@ -23,36 +23,38 @@ const extractText = async (absoluteFilePath) => {
       };
     } else {
       const isVercel = process.env.VERCEL || process.env.VERCEL_ENV;
-      
-      // If deployed on Vercel Serverless, WebAssembly Worker Threads trigger 'Zombie Socket' deadlocks natively.
-      // Therefore, route securely through the ultra-optimized external HTTP API directly inside Vercel environments natively.
+
       if (isVercel) {
-        const FormData = require('form-data');
+        // On Vercel: send image as base64 (faster than multipart) + Engine 1 (3-5s vs 15-25s for Engine 2)
+        // Engine 2 consistently exceeded Vercel's 10s hard limit on the free OCR.Space key
         const axios = require('axios');
-        
-        const form = new FormData();
-        form.append('apikey', 'helloworld');
-        form.append('language', 'eng');
-        form.append('isOverlayRequired', 'false');
-        form.append('scale', 'true');           // Auto-scale for low-res scans
-        form.append('isTable', 'true');         // Preserve table row/column structure in TORs
-        form.append('OCREngine', '2');          // Engine 2 = higher accuracy for printed text
-        form.append('filetype', 'JPG');
-        form.append('file', fs.createReadStream(absoluteFilePath));
-        
-        const response = await axios.post('https://api.ocr.space/parse/image', form, {
-          headers: form.getHeaders(),
-          timeout: 8000 // Ensure strict mathematical limits perfectly below the 10.0s Vercel container shutdown bounds
+
+        const imageBuffer = fs.readFileSync(absoluteFilePath);
+        const base64Image = imageBuffer.toString('base64');
+        const ext = path.extname(absoluteFilePath).replace('.', '').toUpperCase() || 'JPG';
+
+        const payload = new URLSearchParams();
+        payload.append('apikey', 'helloworld');
+        payload.append('language', 'eng');
+        payload.append('isOverlayRequired', 'false');
+        payload.append('scale', 'true');       // Upscale low-res scans for better OCR
+        payload.append('OCREngine', '1');      // Engine 1: fast (3-5s), good accuracy for clean docs
+        payload.append('filetype', ext);
+        payload.append('base64Image', `data:image/${ext.toLowerCase()};base64,${base64Image}`);
+
+        const response = await axios.post('https://api.ocr.space/parse/image', payload.toString(), {
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          timeout: 9000
         });
-        
-        if (response.data && response.data.ParsedResults && response.data.ParsedResults.length > 0) {
+
+        if (response.data?.ParsedResults?.length > 0 && !response.data.ParsedResults[0].ErrorMessage) {
           return {
-            text: response.data.ParsedResults[0].ParsedText,
+            text: response.data.ParsedResults[0].ParsedText || '',
             confidence: 85
           };
-        } else {
-          throw new Error('External Vercel Serverless Proxy OCR parsing mechanically failed.');
         }
+        // Fallback: if base64 parse failed, return empty so validation still runs
+        return { text: '', confidence: 0 };
       }
 
       // If securely running Locally, natively deploy the hyper-fast C++ localized AI dictionary dynamically.

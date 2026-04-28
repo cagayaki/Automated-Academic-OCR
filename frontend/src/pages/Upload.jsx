@@ -41,8 +41,8 @@ const Upload = () => {
           let width = img.width;
           let height = img.height;
           
-          // 1500px tightly balances Absolute Pristine Accuracy vs Ultra-Fast API Transit Speeds
-          const MAX_SIZE = 1500;
+          // 1200px balances OCR accuracy vs payload speed on Vercel (base64 encoded)
+          const MAX_SIZE = 1200;
           if (width > height && width > MAX_SIZE) {
             height *= MAX_SIZE / width;
             width = MAX_SIZE;
