@@ -31,9 +31,13 @@ const extractText = async (absoluteFilePath) => {
         const axios = require('axios');
         
         const form = new FormData();
-        form.append('apikey', 'helloworld'); // Public external processing key
+        form.append('apikey', 'helloworld');
         form.append('language', 'eng');
         form.append('isOverlayRequired', 'false');
+        form.append('scale', 'true');           // Auto-scale for low-res scans
+        form.append('isTable', 'true');         // Preserve table row/column structure in TORs
+        form.append('OCREngine', '2');          // Engine 2 = higher accuracy for printed text
+        form.append('filetype', 'JPG');
         form.append('file', fs.createReadStream(absoluteFilePath));
         
         const response = await axios.post('https://api.ocr.space/parse/image', form, {

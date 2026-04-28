@@ -56,22 +56,31 @@ const Upload = () => {
           const ctx = canvas.getContext('2d');
           ctx.drawImage(img, 0, 0, width, height);
 
-          // STAGE 1: OCR PRE-PROCESSING (Grayscale & Noise Reduction)
-          // Explicitly executed to perfectly clean noisy or tilted scans before extraction
+          // STAGE 1: OCR PRE-PROCESSING — Adaptive Contrast Enhancement
+          // Do NOT use hard binary thresholding — it destroys gray stamps, watermarks and light text.
+          // Instead: convert to grayscale with proper luminance weights, then apply gentle contrast stretch.
           const imageData = ctx.getImageData(0, 0, width, height);
-          const data = imageData.data;
-          
-          for (let i = 0; i < data.length; i += 4) {
-            // Apply luminance Grayscale math
-            const avg = 0.3 * data[i] + 0.59 * data[i + 1] + 0.11 * data[i + 2];
-            
-            // Apply Noise Reduction via High Contrast Thresholding explicitly
-            const threshold = 135; 
-            const contrast = avg > threshold ? 245 : 0;
-            
-            data[i] = contrast;     // Record RED
-            data[i + 1] = contrast; // Record GREEN
-            data[i + 2] = contrast; // Record BLUE
+          const px = imageData.data;
+
+          // Pass 1: Convert to grayscale using ITU-R BT.709 luminance coefficients
+          let minL = 255, maxL = 0;
+          const lum = new Uint8ClampedArray(px.length / 4);
+          for (let i = 0; i < px.length; i += 4) {
+            const l = Math.round(0.2126 * px[i] + 0.7152 * px[i+1] + 0.0722 * px[i+2]);
+            lum[i / 4] = l;
+            if (l < minL) minL = l;
+            if (l > maxL) maxL = l;
+          }
+
+          // Pass 2: Adaptive contrast stretch — expands dynamic range without clipping valid content
+          const range = maxL - minL || 1;
+          for (let i = 0; i < px.length; i += 4) {
+            const stretched = Math.round(((lum[i / 4] - minL) / range) * 255);
+            // Sharpen: push mid-tones toward white (background) to increase text contrast
+            const sharpened = stretched > 160 ? Math.min(255, stretched + 30) : Math.max(0, stretched - 20);
+            px[i]     = sharpened;
+            px[i + 1] = sharpened;
+            px[i + 2] = sharpened;
           }
           ctx.putImageData(imageData, 0, 0);
 
